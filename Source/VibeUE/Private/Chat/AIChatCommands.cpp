@@ -211,6 +211,26 @@ void FAIChatCommands::RegisterMenus()
         ));
     }
 
+#if ENGINE_MAJOR_VERSION < 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION < 7)
+    // UE 5.6 does not have the 5.7 panel drawer button, so expose VibeUE in the main toolbar.
+    {
+        UToolMenu* ToolbarMenu = ToolMenus->ExtendMenu("LevelEditor.LevelEditorToolBar.PlayToolBar");
+        FToolMenuSection& Section = ToolbarMenu->FindOrAddSection("PluginTools");
+
+        FToolMenuEntry Entry = FToolMenuEntry::InitToolBarButton(
+            "VibeUEAIChatToolbar",
+            FUIAction(
+                FExecuteAction::CreateStatic(&FAIChatCommands::HandleOpenAIChat),
+                FCanExecuteAction::CreateStatic(&FAIChatCommands::CanOpenAIChat)
+            ),
+            LOCTEXT("OpenAIChatToolbarLabel", "VibeUE"),
+            LOCTEXT("OpenAIChatToolbarTooltip", "Open the VibeUE AI Chat panel (Ctrl+Shift+V)"),
+            FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Comment")
+        );
+        Section.AddEntry(Entry);
+    }
+#endif
+
     ToolMenus->RefreshAllWidgets();
 }
 
