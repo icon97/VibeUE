@@ -33,7 +33,7 @@ FChatSession::FChatSession()
     , CurrentModelId(TEXT("x-ai/grok-4.1-fast:free"))  // Default to fast free model
     , MaxContextMessages(50)
     , MaxContextTokens(128000)  // Default to 128K, will be updated based on model
-    , ReservedResponseTokens(4000)
+    , ReservedResponseTokens(128000)
 {
     OpenRouterClient = MakeShared<FOpenRouterClient>();
     VibeUEClient = MakeShared<FVibeUEAPIClient>();
@@ -1625,6 +1625,10 @@ int32 FChatSession::GetCurrentModelContextLength() const
     else if (CurrentModelId.Contains(TEXT("grok")))
     {
         return 131072; // 128K for Grok
+    }
+    else if (CurrentModelId.Contains(TEXT("gpt-5.4")))
+    {
+        return 1050000;
     }
     else if (CurrentModelId.Contains(TEXT("claude")))
     {

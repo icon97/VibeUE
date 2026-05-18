@@ -7,6 +7,7 @@
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "HAL/FileManager.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
@@ -36,10 +37,33 @@ static void ApplyPromptCaching(TArray<FChatMessage>& Messages)
     }
 }
 
-const FString FOpenRouterClient::ModelsEndpoint = TEXT("https://openrouter.ai/api/v1/models");
-const FString FOpenRouterClient::ChatEndpoint = TEXT("https://openrouter.ai/api/v1/chat/completions");
+const FString FOpenRouterClient::ModelsEndpoint = TEXT("/models");
+const FString FOpenRouterClient::ChatEndpoint = TEXT("/chat/completions");
 const FString FOpenRouterClient::ContentTypeHeader = TEXT("application/json");
 const FString FOpenRouterClient::AuthorizationHeader = TEXT("Authorization");
+
+static FString GetConfiguredOpenRouterBaseUrl()
+{
+    FString BaseUrl;
+    GConfig->GetString(TEXT("VibeUE"), TEXT("OpenRouterBaseUrl"), BaseUrl, GEditorPerProjectIni);
+    if (BaseUrl.IsEmpty())
+    {
+        GConfig->GetString(TEXT("VibeUE"), TEXT("OpenRouterBaseUrl"), BaseUrl, GEngineIni);
+    }
+    if (BaseUrl.IsEmpty())
+    {
+        BaseUrl = FOpenRouterClient::GetDefaultBaseUrl();
+    }
+
+    BaseUrl.RemoveFromEnd(TEXT("/chat/completions"));
+    BaseUrl.RemoveFromEnd(TEXT("/models"));
+    BaseUrl.RemoveFromEnd(TEXT("/"));
+    if (!BaseUrl.EndsWith(TEXT("/v1")))
+    {
+        BaseUrl += TEXT("/v1");
+    }
+    return BaseUrl;
+}
 
 FOpenRouterClient::FOpenRouterClient()
 {
@@ -72,23 +96,31 @@ FString FOpenRouterClient::GetDefaultSystemPrompt()
     return FLLMClientBase::LoadSystemPromptFromFile();
 }
 
+FString FOpenRouterClient::GetDefaultBaseUrl()
+{
+    return TEXT("https://openrouter.ai/api/v1");
+}
+
 void FOpenRouterClient::FetchModels(FOnLLMModelsFetched OnComplete)
 {
+    const FString ModelsUrl = GetConfiguredOpenRouterBaseUrl() + ModelsEndpoint;
+
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
-    Request->SetURL(ModelsEndpoint);
+    Request->SetURL(ModelsUrl);
     Request->SetVerb(TEXT("GET"));
     if (HasApiKey())
     {
         Request->SetHeader(AuthorizationHeader, FString::Printf(TEXT("Bearer %s"), *ApiKey));
     }
+    Request->SetHeader(TEXT("User-Agent"), TEXT("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"));
     Request->SetHeader(TEXT("HTTP-Referer"), TEXT("https://www.vibeue.com"));
     Request->SetHeader(TEXT("X-OpenRouter-Title"), TEXT("VibeUE"));
     Request->SetHeader(TEXT("X-OpenRouter-Categories"), TEXT("ide-extension"));
     
     Request->OnProcessRequestComplete().BindSP(this, &FOpenRouterClient::HandleModelsFetchComplete, OnComplete);
     Request->ProcessRequest();
-    
-    UE_LOG(LogOpenRouterClient, Log, TEXT("Fetching models from OpenRouter..."));
+
+    UE_LOG(LogOpenRouterClient, Log, TEXT("Fetching models from OpenRouter: %s"), *ModelsUrl);
 }
 
 void FOpenRouterClient::HandleModelsFetchComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bConnectedSuccessfully, FOnModelsFetched OnComplete)
@@ -275,14 +307,16 @@ TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> FOpenRouterClient::BuildHttpReques
     FString RequestBodyString;
     TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&RequestBodyString);
     FJsonSerializer::Serialize(RequestBody.ToSharedRef(), Writer);
-    
+
+    const FString ChatUrl = GetConfiguredOpenRouterBaseUrl() + ChatEndpoint;
+
     // Log full request body to dedicated file for debugging (if file logging enabled)
     if (FChatSession::IsFileLoggingEnabled())
     {
         FString RawLogPath = FPaths::ProjectSavedDir() / TEXT("Logs") / TEXT("VibeUE_RawLLM.log");
         FString RequestLog = FString::Printf(TEXT("\n========== REQUEST [%s] ==========\nURL: %s\nModel: %s, Messages: %d, Tools: %d\n%s\n"),
             *FDateTime::Now().ToString(),
-            *ChatEndpoint,
+            *ChatUrl,
             *ModelId,
             CachedMessages.Num(),
             Tools.Num(),
@@ -292,16 +326,17 @@ TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> FOpenRouterClient::BuildHttpReques
 
     // Create HTTP request
     TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
-    Request->SetURL(ChatEndpoint);
+    Request->SetURL(ChatUrl);
     Request->SetVerb(TEXT("POST"));
     Request->SetHeader(TEXT("Content-Type"), ContentTypeHeader);
     Request->SetHeader(AuthorizationHeader, FString::Printf(TEXT("Bearer %s"), *ApiKey));
+    Request->SetHeader(TEXT("User-Agent"), TEXT("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"));
     Request->SetHeader(TEXT("HTTP-Referer"), TEXT("https://www.vibeue.com"));
     Request->SetHeader(TEXT("X-OpenRouter-Title"), TEXT("VibeUE"));
     Request->SetHeader(TEXT("X-OpenRouter-Categories"), TEXT("ide-extension"));
     Request->SetContentAsString(RequestBodyString);
 
-    UE_LOG(LogOpenRouterClient, Log, TEXT("Sending chat request with model %s"), *ModelId);
+    UE_LOG(LogOpenRouterClient, Log, TEXT("Sending chat request to %s with model %s"), *ChatUrl, *ModelId);
 
     return Request;
 }

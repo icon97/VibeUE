@@ -50,7 +50,7 @@ public:
     /** Set LLM generation parameters */
     void SetTemperature(float InTemperature) { Temperature = FMath::Clamp(InTemperature, 0.0f, 2.0f); }
     void SetTopP(float InTopP) { TopP = FMath::Clamp(InTopP, 0.0f, 1.0f); }
-    void SetMaxTokens(int32 InMaxTokens) { MaxTokens = FMath::Clamp(InMaxTokens, 256, 16384); }
+    void SetMaxTokens(int32 InMaxTokens) { MaxTokens = FMath::Clamp(InMaxTokens, MinMaxTokens, MaxMaxTokens); }
     void SetParallelToolCalls(bool bInParallelToolCalls) { bParallelToolCalls = bInParallelToolCalls; }
     
     /** Get LLM generation parameters */
@@ -71,9 +71,9 @@ public:
     /** Default values (optimized for coding assistants) */
     static constexpr float DefaultTemperature = 0.2f;
     static constexpr float DefaultTopP = 0.95f;
-    static constexpr int32 DefaultMaxTokens = 8192;
+    static constexpr int32 DefaultMaxTokens = 128000;
     static constexpr int32 MinMaxTokens = 256;
-    static constexpr int32 MaxMaxTokens = 16384;
+    static constexpr int32 MaxMaxTokens = 128000;
     static constexpr bool DefaultParallelToolCalls = true;
 
 protected:

@@ -457,9 +457,15 @@ struct VIBEUE_API FOpenRouterModel
         FOpenRouterModel Model;
         if (JsonObject.IsValid())
         {
-            Model.Id = JsonObject->GetStringField(TEXT("id"));
-            Model.Name = JsonObject->GetStringField(TEXT("name"));
-            Model.ContextLength = JsonObject->GetIntegerField(TEXT("context_length"));
+            JsonObject->TryGetStringField(TEXT("id"), Model.Id);
+            if (!JsonObject->TryGetStringField(TEXT("name"), Model.Name) || Model.Name.IsEmpty())
+            {
+                Model.Name = Model.Id;
+            }
+            if (!JsonObject->TryGetNumberField(TEXT("context_length"), Model.ContextLength) || Model.ContextLength <= 0)
+            {
+                Model.ContextLength = Model.Id.Contains(TEXT("gpt-5.4")) ? 1050000 : 128000;
+            }
             
             const TSharedPtr<FJsonObject>* PricingObject;
             if (JsonObject->TryGetObjectField(TEXT("pricing"), PricingObject))
@@ -482,6 +488,10 @@ struct VIBEUE_API FOpenRouterModel
                         break;
                     }
                 }
+            }
+            else
+            {
+                Model.bSupportsTools = true;
             }
         }
         return Model;

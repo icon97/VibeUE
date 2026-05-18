@@ -2224,11 +2224,11 @@ FReply SAIChatWindow::OnSettingsClicked()
             [
                 SNew(SHorizontalBox)
                 + SHorizontalBox::Slot().FillWidth(0.45f).VAlign(VAlign_Center)
-                [ SNew(STextBlock).Text(FText::FromString(TEXT("Max Tokens:"))).ToolTipText(FText::FromString(TEXT("Maximum response length. Range: 256–16384. Default: 8192"))) ]
+                [ SNew(STextBlock).Text(FText::FromString(TEXT("Max Tokens:"))).ToolTipText(FText::FromString(TEXT("Maximum response length. Range: 256–128000. Default: 128000"))) ]
                 + SHorizontalBox::Slot().FillWidth(0.55f)
                 [
                     SAssignNew(MaxTokensSpinBox, SSpinBox<int32>)
-                    .MinValue(256).MaxValue(16384).Delta(256).Value(CfgMaxTokens).MinDesiredWidth(100)
+                    .MinValue(256).MaxValue(128000).Delta(256).Value(CfgMaxTokens).MinDesiredWidth(100)
                 ]
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 4, 0, 12)

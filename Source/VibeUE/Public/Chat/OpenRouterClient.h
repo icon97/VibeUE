@@ -36,7 +36,10 @@ public:
     
     /** Get the default system prompt */
     static FString GetDefaultSystemPrompt();
-    
+
+    /** Get the default OpenRouter API base URL */
+    static FString GetDefaultBaseUrl();
+
     /** Set parallel tool calls setting */
     void SetParallelToolCalls(bool bInParallelToolCalls) { bParallelToolCalls = bInParallelToolCalls; }
     
