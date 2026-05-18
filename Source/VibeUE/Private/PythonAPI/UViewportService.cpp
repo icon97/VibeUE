@@ -219,7 +219,7 @@ bool UViewportService::SetViewMode(const FString& ViewMode)
 	else if (Lower == TEXT("lightcomplexity"))      NewMode = VMI_LightComplexity;
 	else if (Lower == TEXT("shadercomplexity"))     NewMode = VMI_ShaderComplexity;
 	else if (Lower == TEXT("pathtracing"))          NewMode = VMI_PathTracing;
-	else if (Lower == TEXT("clay"))                 NewMode = VMI_Clay;
+	else if (Lower == TEXT("clay"))                 NewMode = VMI_Lit;
 	else
 	{
 		UE_LOG(LogViewportService, Warning, TEXT("SetViewMode: Unknown mode '%s'. Use: lit, unlit, wireframe, detaillighting, lightingonly, lightcomplexity, shadercomplexity, pathtracing, clay"), *ViewMode);
@@ -247,7 +247,6 @@ FString UViewportService::GetViewMode()
 	case VMI_LightComplexity:      return TEXT("lightcomplexity");
 	case VMI_ShaderComplexity:     return TEXT("shadercomplexity");
 	case VMI_PathTracing:          return TEXT("pathtracing");
-	case VMI_Clay:                 return TEXT("clay");
 	default:                       return TEXT("unknown");
 	}
 }

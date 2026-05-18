@@ -64,7 +64,7 @@ static UStateTree* LoadStateTree(const FString& AssetPath)
 	// leaves the object in memory but unreachable by LoadAsset until it's saved.
 	const FString ShortName = FPackageName::GetShortName(AssetPath);
 	const FString FullObjectPath = AssetPath + TEXT(".") + ShortName;
-	if (UStateTree* Found = FindObject<UStateTree>(nullptr, *FullObjectPath, EFindObjectFlags::None))
+	if (UStateTree* Found = FindObject<UStateTree>(nullptr, *FullObjectPath))
 	{
 		return Found;
 	}
@@ -1210,8 +1210,10 @@ static bool SetBlueprintTaskClassOnWrapperNode(FStateTreeEditorNode& InOutNode, 
 	// TaskClass controls wrapper instance type. Refresh instance containers after assignment.
 	InOutNode.Instance.Reset();
 	InOutNode.InstanceObject = nullptr;
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 	InOutNode.ExecutionRuntimeData.Reset();
 	InOutNode.ExecutionRuntimeDataObject = nullptr;
+#endif
 
 	if (const FStateTreeNodeBase* NodeBase = InOutNode.Node.GetPtr<FStateTreeNodeBase>())
 	{
@@ -1224,6 +1226,7 @@ static bool SetBlueprintTaskClassOnWrapperNode(FStateTreeEditorNode& InOutNode, 
 			InOutNode.InstanceObject = NewObject<UObject>(Outer, InstanceClass);
 		}
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 		if (const UScriptStruct* RuntimeType = Cast<const UScriptStruct>(NodeBase->GetExecutionRuntimeDataType()))
 		{
 			InOutNode.ExecutionRuntimeData.InitializeAs(RuntimeType);
@@ -1232,6 +1235,7 @@ static bool SetBlueprintTaskClassOnWrapperNode(FStateTreeEditorNode& InOutNode, 
 		{
 			InOutNode.ExecutionRuntimeDataObject = NewObject<UObject>(Outer, RuntimeClass);
 		}
+#endif
 	}
 
 	return InOutNode.Instance.IsValid() || InOutNode.InstanceObject != nullptr;
@@ -1410,8 +1414,10 @@ static bool SetBlueprintEvaluatorClassOnWrapperNode(FStateTreeEditorNode& InOutN
 	// EvaluatorClass controls wrapper instance type. Refresh instance containers after assignment.
 	InOutNode.Instance.Reset();
 	InOutNode.InstanceObject = nullptr;
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 	InOutNode.ExecutionRuntimeData.Reset();
 	InOutNode.ExecutionRuntimeDataObject = nullptr;
+#endif
 
 	if (const FStateTreeNodeBase* NodeBase = InOutNode.Node.GetPtr<FStateTreeNodeBase>())
 	{
@@ -1424,6 +1430,7 @@ static bool SetBlueprintEvaluatorClassOnWrapperNode(FStateTreeEditorNode& InOutN
 			InOutNode.InstanceObject = NewObject<UObject>(Outer, InstanceClass);
 		}
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 		if (const UScriptStruct* RuntimeType = Cast<const UScriptStruct>(NodeBase->GetExecutionRuntimeDataType()))
 		{
 			InOutNode.ExecutionRuntimeData.InitializeAs(RuntimeType);
@@ -1432,6 +1439,7 @@ static bool SetBlueprintEvaluatorClassOnWrapperNode(FStateTreeEditorNode& InOutN
 		{
 			InOutNode.ExecutionRuntimeDataObject = NewObject<UObject>(Outer, RuntimeClass);
 		}
+#endif
 	}
 
 	return InOutNode.Instance.IsValid() || InOutNode.InstanceObject != nullptr;
@@ -1522,6 +1530,7 @@ static bool InitEditorNodeFromStruct(FStateTreeEditorNode& OutNode, UScriptStruc
 		{
 			OutNode.InstanceObject = NewObject<UObject>(Outer, InstanceClass);
 		}
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 		if (const UScriptStruct* RuntimeType = Cast<const UScriptStruct>(NodeBase->GetExecutionRuntimeDataType()))
 		{
 			OutNode.ExecutionRuntimeData.InitializeAs(RuntimeType);
@@ -1530,6 +1539,7 @@ static bool InitEditorNodeFromStruct(FStateTreeEditorNode& OutNode, UScriptStruc
 		{
 			OutNode.ExecutionRuntimeDataObject = NewObject<UObject>(Outer, RuntimeClass);
 		}
+#endif
 	}
 
 	return true;

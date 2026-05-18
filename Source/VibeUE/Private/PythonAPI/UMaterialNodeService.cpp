@@ -65,22 +65,27 @@ FMaterialDiagnostics UMaterialNodeService::GetMaterialDiagnostics(const FString&
 
 	// Compile status / errors via the active material resource.
 	const EShaderPlatform ShaderPlatform = GMaxRHIShaderPlatform;
-	if (const FMaterialResource* Resource = Material->GetMaterialResource(ShaderPlatform))
+	const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
+	if (const FMaterialResource* Resource = Material->GetMaterialResource(FeatureLevel))
 	{
 		const TArray<FString>& Errors = Resource->GetCompileErrors();
 		Result.CompileErrors = Errors;
-		Result.bIsCompiledOk = Errors.Num() == 0 && !Material->IsCompilingOrHadCompileError(ShaderPlatform);
+		Result.bIsCompiledOk = Errors.Num() == 0 && !Material->IsCompilingOrHadCompileError(FeatureLevel);
 	}
 	else
 	{
-		Result.bIsCompiledOk = !Material->IsCompilingOrHadCompileError(ShaderPlatform);
+		Result.bIsCompiledOk = !Material->IsCompilingOrHadCompileError(FeatureLevel);
 	}
 
 	// Referenced textures from the compiled shader (this is the reliable source of truth —
 	// `MaterialEditingLibrary::GetUsedTextures` returns 0 for many graphs even though the
 	// shader actually samples the textures).
 	TArray<UTexture*> Textures;
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 	Material->GetUsedTextures(Textures, TOptional<EMaterialQualityLevel::Type>(), TOptional<EShaderPlatform>());
+#else
+	Material->GetUsedTextures(Textures, EMaterialQualityLevel::High, true, FeatureLevel, true);
+#endif
 	for (UTexture* Tex : Textures)
 	{
 		if (Tex)

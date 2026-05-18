@@ -111,25 +111,28 @@ void FAIChatCommands::UnregisterTabSpawner()
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void FAIChatCommands::RegisterStatusBarPanelDrawer()
 {
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
     if (GEditor)
     {
         // Make sure StatusBar module is loaded
         FModuleManager::Get().LoadModuleChecked(TEXT("StatusBar"));
-        
+
         if (UStatusBarSubsystem* StatusBarSubsystem = GEditor->GetEditorSubsystem<UStatusBarSubsystem>())
         {
             PanelDrawerSummonHandle = StatusBarSubsystem->RegisterPanelDrawerSummon(
                 UStatusBarSubsystem::FRegisterPanelDrawerSummonDelegate::FDelegate::CreateStatic(
                     &FAIChatCommands::GeneratePanelDrawerSummon)
             );
-            
+
             UE_LOG(LogTemp, Log, TEXT("AI Chat panel drawer registered in status bar"));
         }
     }
+#endif
 }
 
 void FAIChatCommands::UnregisterStatusBarPanelDrawer()
 {
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
     if (GEditor && PanelDrawerSummonHandle.IsValid())
     {
         if (UStatusBarSubsystem* StatusBarSubsystem = GEditor->GetEditorSubsystem<UStatusBarSubsystem>())
@@ -138,6 +141,7 @@ void FAIChatCommands::UnregisterStatusBarPanelDrawer()
         }
         PanelDrawerSummonHandle.Reset();
     }
+#endif
 }
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
@@ -166,6 +170,7 @@ TSharedRef<SDockTab> FAIChatCommands::SpawnAIChatTab(const FSpawnTabArgs& Args)
     return NewTab;
 }
 
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void FAIChatCommands::GeneratePanelDrawerSummon(
     TArray<UStatusBarSubsystem::FTabIdAndButtonLabel>& OutTabIdsAndLabels,
@@ -175,6 +180,7 @@ void FAIChatCommands::GeneratePanelDrawerSummon(
     OutTabIdsAndLabels.Emplace(AIChatTabName, LOCTEXT("StatusBarVibeUE", "VibeUE"));
 }
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
 
 void FAIChatCommands::RegisterMenus()
 {
@@ -217,20 +223,21 @@ void FAIChatCommands::UnregisterMenus()
 
 void FAIChatCommands::HandleOpenAIChat()
 {
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
     // Try to toggle the tab in the panel drawer (right-side slide-in panel)
     // This matches how Unreal's AI Assistant behaves
-    
+
     // Get the widget path under the cursor to find the appropriate window
     FWidgetPath WidgetPath = FSlateApplication::Get().LocateWindowUnderMouse(
         FSlateApplication::Get().GetCursorPos(),
         FSlateApplication::Get().GetInteractiveTopLevelWindows());
-    
+
     TSharedPtr<FTabManager> TabManager;
     if (WidgetPath.IsValid())
     {
         TabManager = FGlobalTabmanager::Get()->GetSubTabManagerForWindow(WidgetPath.GetWindow());
     }
-    
+
     if (TabManager)
     {
         // Toggle the tab in the panel drawer
@@ -239,6 +246,7 @@ void FAIChatCommands::HandleOpenAIChat()
         PRAGMA_ENABLE_DEPRECATION_WARNINGS
     }
     else
+#endif
     {
         // Fallback: just invoke the tab normally
         FGlobalTabmanager::Get()->TryInvokeTab(AIChatTabName);

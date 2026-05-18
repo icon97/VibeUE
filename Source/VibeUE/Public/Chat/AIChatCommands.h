@@ -58,9 +58,11 @@ private:
     static TSharedRef<SDockTab> SpawnAIChatTab(const FSpawnTabArgs& Args);
     
     /** Generate the panel drawer summon button */
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
     PRAGMA_DISABLE_DEPRECATION_WARNINGS
     static void GeneratePanelDrawerSummon(TArray<UStatusBarSubsystem::FTabIdAndButtonLabel>& OutTabIdsAndLabels, const TSharedRef<SDockTab>& InParentTab);
     PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
     
     /** Handle open AI chat command - toggles panel drawer */
     static void HandleOpenAIChat();

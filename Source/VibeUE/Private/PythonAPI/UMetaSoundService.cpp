@@ -81,6 +81,41 @@ namespace
 		return EMetaSoundOutputAudioFormat::Mono;
 	}
 
+	void IterateMetaSoundNodes(const FMetaSoundFrontendDocumentBuilder& Builder, TFunctionRef<void(const FMetasoundFrontendClass&, const FMetasoundFrontendNode&)> Func)
+	{
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
+		Builder.IterateNodes(Func);
+#else
+		const FMetasoundFrontendDocument& Document = Builder.GetDocument();
+		for (const FMetasoundFrontendNode& Node : Document.RootGraph.Graph.Nodes)
+		{
+			const FMetasoundFrontendClass* Class = nullptr;
+			for (const FMetasoundFrontendClass& Dependency : Document.Dependencies)
+			{
+				if (Dependency.ID == Node.ClassID)
+				{
+					Class = &Dependency;
+					break;
+				}
+			}
+
+			if (Class)
+			{
+				Func(*Class, Node);
+			}
+		}
+#endif
+	}
+
+	FString GetMetaSoundNodeTitle(const FMetaSoundFrontendDocumentBuilder& Builder, const FMetasoundFrontendClass& Class, const FMetasoundFrontendNode& Node)
+	{
+#if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
+		return Builder.GetNodeTitle(Node.GetID()).ToString();
+#else
+		return !Node.Name.IsNone() ? Node.Name.ToString() : Class.Metadata.GetDisplayName().ToString();
+#endif
+	}
+
 	/**
 	 * Fuzzy vertex name lookup — tries an exact FName match first, then falls back to a
 	 * case-insensitive suffix match with spaces stripped.  This lets callers pass display
@@ -116,7 +151,7 @@ namespace
 			const FString SearchNorm = Name.Replace(TEXT(" "), TEXT("")).ToLower();
 			FName MatchedName = NAME_None;
 
-			Builder->GetConstBuilder().IterateNodes(
+			IterateMetaSoundNodes(Builder->GetConstBuilder(), 
 				[&](const FMetasoundFrontendClass&, const FMetasoundFrontendNode& Node)
 				{
 					if (MatchedName != NAME_None) return;
@@ -219,7 +254,7 @@ FMetaSoundNodeInfo UMetaSoundService::BuildNodeInfo(UMetaSoundBuilderBase* Build
 		}
 		else
 		{
-			Info.NodeTitle = Builder->GetConstBuilder().GetNodeTitle(Node.GetID()).ToString();
+			Info.NodeTitle = GetMetaSoundNodeTitle(Builder->GetConstBuilder(), Class, Node);
 		}
 	}
 #else
@@ -340,7 +375,7 @@ FMetaSoundResult UMetaSoundService::CreateMetaSound(const FString& PackagePath,
 		if (Builder)
 		{
 			TArray<FGuid> ToRemove;
-			Builder->GetConstBuilder().IterateNodes(
+			IterateMetaSoundNodes(Builder->GetConstBuilder(), 
 				[&](const FMetasoundFrontendClass& Class, const FMetasoundFrontendNode& Node)
 				{
 					const EMetasoundFrontendClassType T = Class.Metadata.GetType();
@@ -416,7 +451,7 @@ FMetaSoundInfo UMetaSoundService::GetMetaSoundInfo(const FString& AssetPath)
 
 	// Count nodes by iterating the document builder (skip Template/Invalid internal nodes)
 	int32 Count = 0;
-	Builder->GetConstBuilder().IterateNodes(
+	IterateMetaSoundNodes(Builder->GetConstBuilder(), 
 		[&Count](const FMetasoundFrontendClass& Class, const FMetasoundFrontendNode&)
 		{
 			const EMetasoundFrontendClassType T = Class.Metadata.GetType();
@@ -602,7 +637,7 @@ TArray<FMetaSoundNodeInfo> UMetaSoundService::ListNodes(const FString& AssetPath
 		return Result;
 	}
 
-	Builder->GetConstBuilder().IterateNodes(
+	IterateMetaSoundNodes(Builder->GetConstBuilder(), 
 		[&](const FMetasoundFrontendClass& Class, const FMetasoundFrontendNode& Node)
 		{
 			Result.Add(BuildNodeInfo(Builder, Class, Node));
@@ -634,7 +669,7 @@ FMetaSoundNodeInfo UMetaSoundService::GetNodePins(const FString& AssetPath, cons
 	FMetaSoundNodeInfo Found;
 	bool bFoundNode = false;
 
-	Builder->GetConstBuilder().IterateNodes(
+	IterateMetaSoundNodes(Builder->GetConstBuilder(), 
 		[&](const FMetasoundFrontendClass& Class, const FMetasoundFrontendNode& Node)
 		{
 			if (bFoundNode)
