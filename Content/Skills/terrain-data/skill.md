@@ -38,7 +38,7 @@ keywords:
 
 # Real-World Terrain Skill
 
-Generates heightmaps and water feature splines from real geographic coordinates via the VibeUE terrain API. Requires an active VibeUE API key configured in chat settings.
+Generates heightmaps and water feature splines from real geographic coordinates via the Iconic terrain backend. Requires an active Iconic API key configured in chat settings.
 
 ## Workflow
 
@@ -348,7 +348,7 @@ The **saved JSON file** contains the full data with:
 
 | Issue | Fix |
 |-------|-----|
-| `NO_API_KEY` | Set your VibeUE API key in chat settings |
+| `NO_API_KEY` | Set your Iconic API key in chat settings |
 | `429` rate limit | 100 requests/day (free), 1000/day (paid) |
 | Flat heightmap | `height_range` < 50m — use `height_scale: 250` for detail |
 | Clipped mountains | Lower `height_scale` or increase `base_level` |

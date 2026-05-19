@@ -19,7 +19,7 @@ Revolutionize your Unreal Engine workflow with AI-powered Blueprint and UMG auto
 • StateTree Behavior - Create AI state machines with states, tasks, evaluators, and transitions
 • Sound Cues & MetaSounds - Build audio graphs, add nodes, wire pins, set properties procedurally
 • Project/Engine Settings - Direct access to editor configuration
-• FREE AI tier included - Get a free API key at vibeue.com!
+• Iconic backend integration for AI-powered editor workflows
 
 
 🛠️ CORE CAPABILITIES:
@@ -36,16 +36,16 @@ Revolutionize your Unreal Engine workflow with AI-powered Blueprint and UMG auto
 
 🎯 TWO WAYS TO USE:
 
-• In-Editor Chat: Get a free API key at vibeue.com, open chat window, start creating!
+• In-Editor Chat: Configure your Iconic API key, open chat window, start creating!
 • External MCP: Connect VS Code, Cursor, Claude Code via HTTP MCP
 
 
 📚 COMPREHENSIVE RESOURCES:
 
-• Complete Documentation: https://www.vibeue.com/docs
-• Tool Reference Guide: https://www.vibeue.com/tools  
-• Video Tutorials: https://www.vibeue.com/videos
-• Free API Key: https://www.vibeue.com (sign up free!)
+• Complete Documentation: included README and in-editor help
+• Tool Reference Guide: included README and in-editor help
+• Video Tutorials: included project examples and help content
+• Iconic API key configuration available in the in-editor settings
 
 
 Transform your Unreal Engine development from manual to magical. Understand existing Blueprints, learn how materials work, and create new content through natural conversation!

@@ -2,7 +2,7 @@
 
 # VibeUE - AI-Powered Unreal Engine Development
 
-https://www.vibeue.com/
+
 
 [![Unreal Engine](https://img.shields.io/badge/Unreal%20Engine-5.7%2B-orange)](https://www.unrealengine.com)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue)](https://modelcontextprotocol.io)
@@ -12,7 +12,7 @@ https://www.vibeue.com/
 
 **VibeUE brings AI directly into Unreal Engine** with an In-Editor Chat Client and Model Context Protocol (MCP) integration. Plan, inspect, create, and modify Blueprints, assets, materials, animation, landscapes, audio, UI, AI behavior, project settings, and more through natural language.
 
-> **🔑 A free VibeUE API key is required** for the MCP server and AI Chat to work. Get yours at **[vibeue.com/login](https://www.vibeue.com/login)** — then paste it into the VibeUE settings gear icon inside Unreal Editor. See the [AI Clients setup guide](https://www.vibeue.com/docs/ai-clients) for IDE configuration.
+> **An Iconic API key is required** for the Iconic backend features used by MCP tools and AI Chat. Paste your key into the VibeUE settings gear icon inside Unreal Editor. See the AI client setup section below for IDE configuration.
 
 ## ✨ Key Features
 
@@ -415,10 +415,9 @@ If the provided path is invalid, the script falls back to automatic detection.
 
 1. Open **Tools > VibeUE > AI Chat**
 2. Click the ⚙️ gear icon
-3. Get a free API key at [vibeue.com/login](https://www.vibeue.com/login)
-4. Paste the key into the **VibeUE API Key** field and click **Save**
+3. Paste your Iconic API key into the **Iconic API Key** field and click **Save**
 
-> **⚠️ Required for MCP tools:** The VibeUE API key is validated at startup. If no valid key is configured, all MCP tools will return an error. Get your free key at [vibeue.com/login](https://www.vibeue.com/login).
+> **Required for MCP tools:** The Iconic API key is validated at startup. If no valid key is configured, all MCP tools will return an error until an Iconic API key is configured.
 
 ---
 
@@ -1762,7 +1761,7 @@ In **Project Settings > Plugins > VibeUE**:
 
 Server runs at `http://127.0.0.1:8088/mcp`
 
-> **⚠️ VibeUE API Key required:** The MCP server validates your **VibeUE API Key** (set in the AI Chat settings) against `vibeue.com` at startup. All MCP tool calls will fail with an error until a valid key is configured. Get your free key at [vibeue.com/login](https://www.vibeue.com/login).
+> **Iconic API Key required:** The MCP server validates your **Iconic API Key** set in the AI Chat settings against the Iconic backend at startup. All MCP tool calls will fail with an error until a valid key is configured.
 
 ### VS Code Configuration
 
@@ -1787,10 +1786,10 @@ Create `.vscode/mcp.json`:
 Run once in your terminal:
 
 ```bash
-claude mcp add --scope user --transport stdio VibeUE-Claude -- npx -y mcp-remote http://127.0.0.1:8088/mcp --transport http-only --allow-http --header "Authorization:Bearer YOUR_API_KEY"
+claude mcp add --transport http --scope user vibeue http://127.0.0.1:8088/mcp
 ```
 
-Omit the `--header` arguments if no API key is set in VibeUE.
+This direct HTTP configuration connects to the local MCP server while Unreal Editor is running.
 
 ### Cursor / AntiGravity
 
@@ -2029,7 +2028,7 @@ Plugins/VibeUE/
 ## 🤝 Community
 
 - **Discord**: https://discord.gg/hZs73ST59a
-- **Documentation**: https://www.vibeue.com/docs
+- **Documentation**: See this README and the included in-editor help content.
 
 ---
 

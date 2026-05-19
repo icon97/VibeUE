@@ -2413,7 +2413,7 @@ FString FChatSession::GetVibeUEEndpointFromConfig()
     }
     if (Endpoint.IsEmpty())
     {
-        // Legacy fallback only if it is not the old VibeUE cloud endpoint.
+        // Legacy fallback only if it is not the old cloud endpoint.
         GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEEndpoint"), Endpoint, GEditorPerProjectIni);
         if (Endpoint.Contains(TEXT("vibeue.com")))
         {

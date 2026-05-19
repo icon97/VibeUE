@@ -97,10 +97,10 @@ bool FMCPServer::Start()
     if (Config.ApiKey.IsEmpty())
     {
         UE_LOG(LogMCPServer, Error, TEXT(
-            "SECURITY WARNING: VibeUE MCP server is starting with NO API key set. "
+            "SECURITY WARNING: VibeUE MCP server is starting with NO Iconic API key set. "
             "Any local process on this machine can connect and execute tools without authentication "
             "-- including file access, asset changes, and arbitrary Python code execution inside Unreal Engine. "
-            "Set an API key in Project Settings -> Plugins -> VibeUE -> API Key to restrict access."));
+            "Set an Iconic API key in VibeUE chat settings to enable backend validation."));
     }
 
     UE_LOG(LogMCPServer, Log, TEXT("Starting MCP Server on port %d..."), Config.Port);

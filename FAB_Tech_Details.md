@@ -8,4 +8,4 @@ Module: VibeUE (Editor) with 163 C++ classes enabling Blueprint/UMG/Material/Enh
 
 Windows 64-bit, Unreal Engine 5.7+, Requires: Python Script Plugin, EditorScriptingUtilities, Enhanced Input, AudioCapture, Niagara, MeshModelingToolset, ModelViewViewModel, StateTree.
 
-Docs: https://www.vibeue.com/docs | FREE API at vibeue.com or use OpenRouter for Claude/GPT-4 | No Python dependency - native C++
+Docs: included README and in-editor help | Iconic backend or OpenRouter-compatible providers for Claude/GPT-4 | No Python dependency - native C++

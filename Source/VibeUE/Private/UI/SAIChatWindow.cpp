@@ -705,7 +705,7 @@ void SAIChatWindow::RebuildMessageList()
     // Show empty state if no messages
     if (Messages.Num() == 0)
     {
-        // Check if user has a VibeUE API key
+        // Check if user has an Iconic API key
         bool bHasVibeUEApiKey = !FChatSession::GetVibeUEApiKeyFromConfig().IsEmpty();
         
         // Always recreate the empty state widget to reflect current API key status
@@ -766,12 +766,11 @@ void SAIChatWindow::RebuildMessageList()
                 SNew(SButton)
                 .ButtonStyle(FAppStyle::Get(), "SimpleButton")
                 .OnClicked_Lambda([]() -> FReply {
-                    FPlatformProcess::LaunchURL(TEXT("https://www.vibeue.com/login"), nullptr, nullptr);
                     return FReply::Handled();
                 })
                 [
                     SNew(STextBlock)
-                    .Text(FText::FromString(TEXT("Get a free API key at vibeue.com")))
+                    .Text(FText::FromString(TEXT("Configure Iconic API key in settings")))
                     .Font(FCoreStyle::GetDefaultFontStyle("Regular", 11))
                     .ColorAndOpacity(FSlateColor(VibeUEColors::Cyan))
                 ]
@@ -2143,7 +2142,7 @@ FReply SAIChatWindow::OnSettingsClicked()
             + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 4)
             [
                 SNew(STextBlock)
-                .Text(FText::FromString(TEXT("VibeUE API Key:")))
+                .Text(FText::FromString(TEXT("Iconic API Key:")))
                 .Font(FCoreStyle::GetDefaultFontStyle("Bold", 11))
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 2)
@@ -2156,12 +2155,11 @@ FReply SAIChatWindow::OnSettingsClicked()
             [
                 SNew(SButton).ButtonStyle(FAppStyle::Get(), "SimpleButton")
                 .OnClicked_Lambda([]() -> FReply {
-                    FPlatformProcess::LaunchURL(TEXT("https://www.vibeue.com/login"), nullptr, nullptr);
                     return FReply::Handled();
                 })
                 [
                     SNew(STextBlock)
-                    .Text(FText::FromString(TEXT("Get VibeUE API key at vibeue.com")))
+                    .Text(FText::FromString(TEXT("Configure Iconic API key")))
                     .ColorAndOpacity(FSlateColor(FLinearColor(0.3f, 0.5f, 1.0f)))
                 ]
             ]

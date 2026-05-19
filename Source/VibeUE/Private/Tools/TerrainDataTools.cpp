@@ -635,7 +635,7 @@ static FString ActionPreviewElevation(const TMap<FString, FString>& Params)
 {
 	const FString ApiKey = GetIconicApiKey();
 	if (ApiKey.IsEmpty())
-		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No Iconic API key configured."));
+		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No Iconic API key configured. Set IconicApiKey in VibeUE chat settings."));
 
 	const double Lng = ExtractTerrainDouble(Params, TEXT("lng"), 0.0);
 	const double Lat = ExtractTerrainDouble(Params, TEXT("lat"), 0.0);
@@ -677,7 +677,7 @@ static FString ActionGetMapImage(const TMap<FString, FString>& Params)
 {
 	const FString ApiKey = GetIconicApiKey();
 	if (ApiKey.IsEmpty())
-		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No Iconic API key configured."));
+		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No Iconic API key configured. Set IconicApiKey in VibeUE chat settings."));
 
 	const double Lng     = ExtractTerrainDouble(Params, TEXT("lng"),      0.0);
 	const double Lat     = ExtractTerrainDouble(Params, TEXT("lat"),      0.0);

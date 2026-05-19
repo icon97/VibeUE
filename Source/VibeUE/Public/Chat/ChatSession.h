@@ -180,7 +180,7 @@ public:
     /** Set API key */
     void SetApiKey(const FString& ApiKey);
     
-    /** Set VibeUE API key */
+    /** Set Iconic API key */
     void SetVibeUEApiKey(const FString& ApiKey);
 
     /** Set VibeUE endpoint URL (updates running client and persists to config) */
@@ -195,10 +195,10 @@ public:
     /** Save OpenRouter API key to config */
     static void SaveApiKeyToConfig(const FString& ApiKey);
     
-    /** Get VibeUE API key from config */
+    /** Get Iconic API key from config */
     static FString GetVibeUEApiKeyFromConfig();
     
-    /** Save VibeUE API key to config */
+    /** Save Iconic API key to config */
     static void SaveVibeUEApiKeyToConfig(const FString& ApiKey);
     
     /** Get VibeUE API endpoint from config */
