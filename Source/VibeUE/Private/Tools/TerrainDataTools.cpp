@@ -2,7 +2,7 @@
 //
 // TerrainDataTools.cpp
 // MCP tool: terrain_data — generate heightmaps and map images from real-world terrain data.
-// Calls vibeue.com terrain API endpoints authenticated with the user's VibeUE API key.
+// Uses Iconic terrain endpoints when configured/available.
 
 #include "Core/ToolRegistry.h"
 #include "Json.h"
@@ -76,17 +76,34 @@ static bool ExtractTerrainBool(const TMap<FString, FString>& Params, const FStri
 	return V.Equals(TEXT("true"), ESearchCase::IgnoreCase) || V.Equals(TEXT("1"));
 }
 
-static FString GetVibeUEApiKey()
+static FString GetIconicApiKey()
 {
 	FString Key;
-	GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEApiKey"), Key, GEditorPerProjectIni);
+	GConfig->GetString(TEXT("VibeUE"), TEXT("IconicApiKey"), Key, GEditorPerProjectIni);
+	if (Key.IsEmpty())
+	{
+		GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEApiKey"), Key, GEditorPerProjectIni);
+	}
 	return Key;
 }
 
 static FString GetTerrainBaseUrl()
 {
-	FString Url = TEXT("https://www.vibeue.com");
-	GConfig->GetString(TEXT("VibeUE.Terrain"), TEXT("ApiBaseUrl"), Url, GEngineIni);
+	FString Url;
+	GConfig->GetString(TEXT("VibeUE.Terrain"), TEXT("IconicBaseUrl"), Url, GEngineIni);
+	if (Url.IsEmpty())
+	{
+		GConfig->GetString(TEXT("VibeUE"), TEXT("IconicTerrainBaseUrl"), Url, GEditorPerProjectIni);
+	}
+	if (Url.IsEmpty())
+	{
+		GConfig->GetString(TEXT("VibeUE"), TEXT("IconicBaseUrl"), Url, GEditorPerProjectIni);
+	}
+	if (Url.IsEmpty())
+	{
+		Url = TEXT("https://api.iconic.io.vn");
+	}
+	Url.RemoveFromEnd(TEXT("/"));
 	return Url;
 }
 
@@ -128,7 +145,11 @@ static FTerrainHttpResult TerrainHttpPost(
 	Request->SetURL(Url);
 	Request->SetVerb(TEXT("POST"));
 	Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
-	Request->SetHeader(TEXT("X-API-Key"), ApiKey);
+	if (!ApiKey.IsEmpty())
+	{
+		Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiKey));
+		Request->SetHeader(TEXT("X-API-Key"), ApiKey);
+	}
 	Request->SetContentAsString(JsonBody);
 
 	bool bComplete = false;
@@ -182,7 +203,10 @@ static FTerrainHttpResult TerrainHttpGet(const FString& Url, const FString& ApiK
 	Request->SetURL(Url);
 	Request->SetVerb(TEXT("GET"));
 	if (!ApiKey.IsEmpty())
+	{
+		Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiKey));
 		Request->SetHeader(TEXT("X-API-Key"), ApiKey);
+	}
 
 	bool bComplete = false;
 	Request->OnProcessRequestComplete().BindLambda(
@@ -257,9 +281,9 @@ static FString ResolveSavePath(const FString& RequestedPath, const FString& File
 // ---------------------------------------------------------------------------
 static FString ActionGetWaterFeatures(const TMap<FString, FString>& Params)
 {
-	const FString ApiKey = GetVibeUEApiKey();
+	const FString ApiKey = GetIconicApiKey();
 	if (ApiKey.IsEmpty())
-		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No VibeUE API key configured. Set it in VibeUE chat settings."));
+		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No Iconic API key configured. Set IconicApiKey in VibeUE chat settings."));
 
 	const double Lng = ExtractTerrainDouble(Params, TEXT("lng"), 0.0);
 	const double Lat = ExtractTerrainDouble(Params, TEXT("lat"), 0.0);
@@ -504,9 +528,9 @@ static FString ActionGetWaterFeatures(const TMap<FString, FString>& Params)
 // ---------------------------------------------------------------------------
 static FString ActionGenerateHeightmap(const TMap<FString, FString>& Params)
 {
-	const FString ApiKey = GetVibeUEApiKey();
+	const FString ApiKey = GetIconicApiKey();
 	if (ApiKey.IsEmpty())
-		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No VibeUE API key configured. Set it in VibeUE chat settings."));
+		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No Iconic API key configured. Set IconicApiKey in VibeUE chat settings."));
 
 	const double Lng = ExtractTerrainDouble(Params, TEXT("lng"), 0.0);
 	const double Lat = ExtractTerrainDouble(Params, TEXT("lat"), 0.0);
@@ -609,9 +633,9 @@ static FString ActionGenerateHeightmap(const TMap<FString, FString>& Params)
 // ---------------------------------------------------------------------------
 static FString ActionPreviewElevation(const TMap<FString, FString>& Params)
 {
-	const FString ApiKey = GetVibeUEApiKey();
+	const FString ApiKey = GetIconicApiKey();
 	if (ApiKey.IsEmpty())
-		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No VibeUE API key configured."));
+		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No Iconic API key configured."));
 
 	const double Lng = ExtractTerrainDouble(Params, TEXT("lng"), 0.0);
 	const double Lat = ExtractTerrainDouble(Params, TEXT("lat"), 0.0);
@@ -651,9 +675,9 @@ static FString ActionPreviewElevation(const TMap<FString, FString>& Params)
 // ---------------------------------------------------------------------------
 static FString ActionGetMapImage(const TMap<FString, FString>& Params)
 {
-	const FString ApiKey = GetVibeUEApiKey();
+	const FString ApiKey = GetIconicApiKey();
 	if (ApiKey.IsEmpty())
-		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No VibeUE API key configured."));
+		return BuildErrorJson(TEXT("NO_API_KEY"), TEXT("No Iconic API key configured."));
 
 	const double Lng     = ExtractTerrainDouble(Params, TEXT("lng"),      0.0);
 	const double Lat     = ExtractTerrainDouble(Params, TEXT("lat"),      0.0);
@@ -727,7 +751,7 @@ static FString ActionListStyles()
 // ---------------------------------------------------------------------------
 REGISTER_VIBEUE_TOOL(terrain_data,
 	"Generate heightmaps, map images, and water feature data from real-world terrain. "
-	"Requires an active VibeUE API key. "
+	"Requires an active Iconic API key. "
 	"Actions: generate_heightmap, preview_elevation, get_map_image, list_styles, get_water_features. "
 	"IMPORTANT: Use the 'resolution' parameter to match your landscape resolution. "
 	"Heightmap workflow: 1) preview_elevation for suggested settings (returns suggestedZScale, suggestedXYScales by resolution). "

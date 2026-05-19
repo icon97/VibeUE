@@ -159,7 +159,7 @@ public:
     /** Process pending requests on game thread (called by tick) */
     void ProcessPendingRequests();
     
-    /** Validate VibeUE API key asynchronously - sets bIsVibeUEApiKeyValid */
+    /** Validate Iconic API key asynchronously - sets bIsVibeUEApiKeyValid */
     void ValidateVibeUEApiKeyAsync();
 
 private:
@@ -228,7 +228,7 @@ private:
     /** Current configuration */
     FMCPHostConfig Config;
     
-    /** Whether the VibeUE API key has been validated (checked at startup) */
+    /** Whether the Iconic API key has been validated (checked at startup) */
     bool bIsVibeUEApiKeyValid = false;
     
     /** Whether the server is currently running */

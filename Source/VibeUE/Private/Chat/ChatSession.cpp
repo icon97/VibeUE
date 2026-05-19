@@ -2383,23 +2383,45 @@ void FChatSession::RejectToolCall(const FString& ToolCallId)
 FString FChatSession::GetVibeUEApiKeyFromConfig()
 {
     FString ApiKey;
-    GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEApiKey"), ApiKey, GEditorPerProjectIni);
+    GConfig->GetString(TEXT("VibeUE"), TEXT("IconicApiKey"), ApiKey, GEditorPerProjectIni);
+    if (ApiKey.IsEmpty())
+    {
+        // Legacy fallback for existing local installs; new saves use IconicApiKey.
+        GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEApiKey"), ApiKey, GEditorPerProjectIni);
+    }
     return ApiKey;
 }
 
 void FChatSession::SaveVibeUEApiKeyToConfig(const FString& ApiKey)
 {
-    GConfig->SetString(TEXT("VibeUE"), TEXT("VibeUEApiKey"), *ApiKey, GEditorPerProjectIni);
+    GConfig->SetString(TEXT("VibeUE"), TEXT("IconicApiKey"), *ApiKey, GEditorPerProjectIni);
     GConfig->Flush(false, GEditorPerProjectIni);
 }
 
 FString FChatSession::GetVibeUEEndpointFromConfig()
 {
     FString Endpoint;
-    GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEEndpoint"), Endpoint, GEditorPerProjectIni);
+    GConfig->GetString(TEXT("VibeUE"), TEXT("IconicEndpoint"), Endpoint, GEditorPerProjectIni);
     if (Endpoint.IsEmpty())
     {
-        // Return default endpoint if not configured
+        GConfig->GetString(TEXT("VibeUE"), TEXT("IconicBaseUrl"), Endpoint, GEditorPerProjectIni);
+        if (!Endpoint.IsEmpty())
+        {
+            Endpoint.RemoveFromEnd(TEXT("/"));
+            Endpoint += TEXT("/v1/chat/completions");
+        }
+    }
+    if (Endpoint.IsEmpty())
+    {
+        // Legacy fallback only if it is not the old VibeUE cloud endpoint.
+        GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEEndpoint"), Endpoint, GEditorPerProjectIni);
+        if (Endpoint.Contains(TEXT("vibeue.com")))
+        {
+            Endpoint.Empty();
+        }
+    }
+    if (Endpoint.IsEmpty())
+    {
         return FVibeUEAPIClient::GetDefaultEndpoint();
     }
     return Endpoint;
@@ -2407,7 +2429,7 @@ FString FChatSession::GetVibeUEEndpointFromConfig()
 
 void FChatSession::SaveVibeUEEndpointToConfig(const FString& Endpoint)
 {
-    GConfig->SetString(TEXT("VibeUE"), TEXT("VibeUEEndpoint"), *Endpoint, GEditorPerProjectIni);
+    GConfig->SetString(TEXT("VibeUE"), TEXT("IconicEndpoint"), *Endpoint, GEditorPerProjectIni);
     GConfig->Flush(false, GEditorPerProjectIni);
 }
 
@@ -2444,13 +2466,13 @@ TArray<FLLMProviderInfo> FChatSession::GetAvailableProviders()
 {
     TArray<FLLMProviderInfo> Providers;
     
-    // VibeUE provider
+    // Iconic provider
     Providers.Add(FLLMProviderInfo(
         TEXT("VibeUE"),
-        TEXT("VibeUE"),
-        false,
+        TEXT("Iconic"),
+        true,
         TEXT(""),
-        TEXT("VibeUE's own LLM API service")
+        TEXT("Iconic LLM API service")
     ));
     
     // OpenRouter provider

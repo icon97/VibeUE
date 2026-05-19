@@ -19,8 +19,7 @@ const FString FVibeUEAPIClient::ApiKeyHeader = TEXT("X-API-Key");
 
 FString FVibeUEAPIClient::GetDefaultEndpoint()
 {
-    // VibeUE LLM API endpoint
-    return TEXT("https://llm.vibeue.com/v1/chat/completions");
+    return TEXT("https://api.iconic.io.vn/v1/chat/completions");
 }
 
 FString FVibeUEAPIClient::GetDefaultSystemPrompt()
@@ -38,10 +37,10 @@ FLLMProviderInfo FVibeUEAPIClient::GetProviderInfo() const
 {
     return FLLMProviderInfo(
         TEXT("VibeUE"),
-        TEXT("VibeUE"),
+        TEXT("Iconic"),
         true,   // Supports model selection (fetched from API)
         TEXT(""),  // No default model ID needed
-        TEXT("VibeUE's own LLM API service")
+        TEXT("Iconic LLM API service")
     );
 }
 
@@ -64,7 +63,7 @@ FString FVibeUEAPIClient::ProcessErrorResponse(int32 ResponseCode, const FString
 {
     if (ResponseCode == 401)
     {
-        return TEXT("Invalid VibeUE API key. Please check your API key in settings.");
+        return TEXT("Invalid Iconic API key. Please check your API key in settings.");
     }
     
     // Use base class implementation for other errors
@@ -79,7 +78,7 @@ TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> FVibeUEAPIClient::BuildHttpRequest
     // Check for API key
     if (!HasApiKey())
     {
-        OnPreRequestError(TEXT("VibeUE API key not configured. Please set your API key in the settings."));
+        OnPreRequestError(TEXT("Iconic API key not configured. Please set your API key in the settings."));
         return nullptr;
     }
 
@@ -195,6 +194,7 @@ TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> FVibeUEAPIClient::BuildHttpRequest
     Request->SetURL(EndpointUrl);
     Request->SetVerb(TEXT("POST"));
     Request->SetHeader(TEXT("Content-Type"), ContentTypeHeader);
+    Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiKey));
     Request->SetHeader(ApiKeyHeader, ApiKey);
     // Disable keep-alive to prevent stale connections causing stuck requests
     Request->SetHeader(TEXT("Connection"), TEXT("close"));
@@ -214,7 +214,7 @@ void FVibeUEAPIClient::FetchModelInfo(TFunction<void(bool bSuccess, int32 Contex
     }
     
     // Build the models endpoint URL from the chat endpoint
-    // e.g., https://llm.vibeue.com/v1/chat/completions -> https://llm.vibeue.com/v1/models
+    // e.g., https://api.iconic.io.vn/v1/chat/completions -> https://api.iconic.io.vn/v1/models
     FString ModelsUrl = EndpointUrl;
     ModelsUrl.ReplaceInline(TEXT("/v1/chat/completions"), TEXT("/v1/models"));
     
@@ -226,6 +226,7 @@ void FVibeUEAPIClient::FetchModelInfo(TFunction<void(bool bSuccess, int32 Contex
     Request->SetHeader(TEXT("Content-Type"), ContentTypeHeader);
     if (HasApiKey())
     {
+        Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiKey));
         Request->SetHeader(ApiKeyHeader, ApiKey);
     }
     Request->SetTimeout(10.0f);  // Short timeout for simple GET request
@@ -307,6 +308,7 @@ void FVibeUEAPIClient::FetchModels(FOnLLMModelsFetched OnComplete)
     Request->SetHeader(TEXT("Content-Type"), ContentTypeHeader);
     if (HasApiKey())
     {
+        Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiKey));
         Request->SetHeader(ApiKeyHeader, ApiKey);
     }
     Request->SetTimeout(10.0f);
@@ -372,7 +374,7 @@ void FVibeUEAPIClient::CountTokens(const FString& Text, TFunction<void(bool bSuc
     }
 
     // Build the tokenize endpoint URL from the chat endpoint
-    // e.g., https://llm.vibeue.com/v1/chat/completions -> https://llm.vibeue.com/v1/tokenize
+    // e.g., https://api.iconic.io.vn/v1/chat/completions -> https://api.iconic.io.vn/v1/tokenize
     FString TokenizeUrl = EndpointUrl;
     TokenizeUrl.ReplaceInline(TEXT("/v1/chat/completions"), TEXT("/v1/tokenize"));
 
@@ -391,7 +393,11 @@ void FVibeUEAPIClient::CountTokens(const FString& Text, TFunction<void(bool bSuc
     Request->SetURL(TokenizeUrl);
     Request->SetVerb(TEXT("POST"));
     Request->SetHeader(TEXT("Content-Type"), ContentTypeHeader);
-    // Note: Tokenize endpoint doesn't require authentication
+    if (HasApiKey())
+    {
+        Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiKey));
+        Request->SetHeader(ApiKeyHeader, ApiKey);
+    }
     Request->SetContentAsString(RequestBodyString);
     Request->SetTimeout(10.0f);
 
@@ -514,6 +520,11 @@ void FVibeUEAPIClient::CountTokensInMessages(const TArray<FChatMessage>& Message
     Request->SetURL(TokenizeUrl);
     Request->SetVerb(TEXT("POST"));
     Request->SetHeader(TEXT("Content-Type"), ContentTypeHeader);
+    if (HasApiKey())
+    {
+        Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiKey));
+        Request->SetHeader(ApiKeyHeader, ApiKey);
+    }
     Request->SetContentAsString(RequestBodyString);
     Request->SetTimeout(10.0f);
 

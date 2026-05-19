@@ -16,8 +16,8 @@ using FOnVibeToolCall = FOnLLMToolCall;
 using FOnVibeUsageReceived = FOnLLMUsageReceived;
 
 /**
- * HTTP client for VibeUE API with SSE streaming support
- * Connects to the VibeUE-API service (OpenAI-compatible API with tool calling)
+ * HTTP client for Iconic API with SSE streaming support
+ * Connects to the Iconic OpenAI-compatible API with tool calling
  * 
  * Inherits streaming/SSE parsing from FLLMClientBase
  */
@@ -41,7 +41,7 @@ public:
     /** Get the current endpoint URL */
     const FString& GetEndpointUrl() const { return EndpointUrl; }
 
-    /** Get the default VibeUE API endpoint */
+    /** Get the default Iconic API endpoint */
     static FString GetDefaultEndpoint();
 
     /** Get the default system prompt */
@@ -88,7 +88,7 @@ protected:
     //~ End FLLMClientBase Interface
 
 private:
-    /** API key for VibeUE API (X-API-Key header) */
+    /** API key for Iconic API (Authorization bearer and X-API-Key headers) */
     FString ApiKey;
 
     /** API endpoint URL */

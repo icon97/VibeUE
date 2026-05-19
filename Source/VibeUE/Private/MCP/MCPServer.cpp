@@ -91,7 +91,7 @@ bool FMCPServer::Start()
         return true;
     }
 
-    // Re-validate VibeUE API key each time the server starts (picks up any key changes from settings)
+    // Re-validate Iconic API key each time the server starts (picks up any key changes from settings)
     ValidateVibeUEApiKeyAsync();
 
     if (Config.ApiKey.IsEmpty())
@@ -854,14 +854,14 @@ FString FMCPServer::HandleToolsList(TSharedPtr<FJsonObject> Params, const FStrin
 
 FString FMCPServer::HandleToolsCall(TSharedPtr<FJsonObject> Params, const FString& RequestId)
 {
-    // Check VibeUE API key validity before executing any tool
+    // Check Iconic API key validity before executing any tool
     if (!bIsVibeUEApiKeyValid)
     {
         TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
         TArray<TSharedPtr<FJsonValue>> ContentArray;
         TSharedPtr<FJsonObject> ContentItem = MakeShared<FJsonObject>();
         ContentItem->SetStringField(TEXT("type"), TEXT("text"));
-        ContentItem->SetStringField(TEXT("text"), TEXT("\u274C A valid VibeUE API key is required to use VibeUE MCP tools. Get your free API key at https://www.vibeue.com/login"));
+        ContentItem->SetStringField(TEXT("text"), TEXT("A valid Iconic API key is required to use MCP tools. Configure IconicApiKey in VibeUE chat settings."));
         ContentArray.Add(MakeShared<FJsonValueObject>(ContentItem));
         Result->SetArrayField(TEXT("content"), ContentArray);
         Result->SetBoolField(TEXT("isError"), true);
@@ -1283,17 +1283,25 @@ bool FMCPServer::ValidateApiKey(const TMap<FString, FString>& Headers) const
 }
 void FMCPServer::ValidateVibeUEApiKeyAsync()
 {
-    FString VibeUEApiKey;
-    GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEApiKey"), VibeUEApiKey, GEditorPerProjectIni);
+    FString IconicApiKey;
+    GConfig->GetString(TEXT("VibeUE"), TEXT("IconicApiKey"), IconicApiKey, GEditorPerProjectIni);
+    if (IconicApiKey.IsEmpty())
+    {
+        GConfig->GetString(TEXT("VibeUE"), TEXT("VibeUEApiKey"), IconicApiKey, GEditorPerProjectIni);
+    }
 
-    if (VibeUEApiKey.IsEmpty())
+    if (IconicApiKey.IsEmpty())
     {
         bIsVibeUEApiKeyValid = false;
-        UE_LOG(LogMCPServer, Warning, TEXT("VibeUE API key not configured - MCP tools will require a valid key. Get one free at https://www.vibeue.com/login"));
+        UE_LOG(LogMCPServer, Warning, TEXT("Iconic API key not configured - MCP tools require a valid key."));
         return;
     }
 
-    UE_LOG(LogMCPServer, Log, TEXT("Validating VibeUE API key..."));
+    FString IconicBaseUrl = TEXT("https://api.iconic.io.vn");
+    GConfig->GetString(TEXT("VibeUE"), TEXT("IconicBaseUrl"), IconicBaseUrl, GEditorPerProjectIni);
+    IconicBaseUrl.RemoveFromEnd(TEXT("/"));
+
+    UE_LOG(LogMCPServer, Log, TEXT("Validating Iconic API key..."));
 
     // Record the date of this validation attempt so day-rollover detection starts from now
     LastValidationDate = FDateTime::Now().ToString(TEXT("%Y-%m-%d"));
@@ -1301,9 +1309,10 @@ void FMCPServer::ValidateVibeUEApiKeyAsync()
     TWeakPtr<FMCPServer> WeakThis = Instance;
 
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
-    HttpRequest->SetURL(TEXT("https://llm.vibeue.com/v1/auth/validate"));
+    HttpRequest->SetURL(IconicBaseUrl + TEXT("/v1/auth/validate"));
     HttpRequest->SetVerb(TEXT("GET"));
-    HttpRequest->SetHeader(TEXT("X-API-Key"), VibeUEApiKey);
+    HttpRequest->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *IconicApiKey));
+    HttpRequest->SetHeader(TEXT("X-API-Key"), IconicApiKey);
     HttpRequest->OnProcessRequestComplete().BindLambda(
         [WeakThis](FHttpRequestPtr /*Request*/, FHttpResponsePtr Response, bool bConnectedSuccessfully)
         {
@@ -1316,13 +1325,13 @@ void FMCPServer::ValidateVibeUEApiKeyAsync()
             if (bConnectedSuccessfully && Response.IsValid() && Response->GetResponseCode() == 200)
             {
                 StrongThis->bIsVibeUEApiKeyValid = true;
-                UE_LOG(LogMCPServer, Log, TEXT("VibeUE API key validated successfully - MCP tools are available"));
+                UE_LOG(LogMCPServer, Log, TEXT("Iconic API key validated successfully - MCP tools are available"));
             }
             else
             {
                 StrongThis->bIsVibeUEApiKeyValid = false;
                 int32 ResponseCode = Response.IsValid() ? Response->GetResponseCode() : 0;
-                UE_LOG(LogMCPServer, Warning, TEXT("VibeUE API key validation failed (HTTP %d) - MCP tools unavailable. Get a valid key at https://www.vibeue.com/login"), ResponseCode);
+                UE_LOG(LogMCPServer, Warning, TEXT("Iconic API key validation failed (HTTP %d) - MCP tools unavailable"), ResponseCode);
             }
         });
     HttpRequest->ProcessRequest();
@@ -1493,7 +1502,7 @@ void FMCPServer::ProcessPendingRequests()
         FString TodayStr = FDateTime::Now().ToString(TEXT("%Y-%m-%d"));
         if (!LastValidationDate.IsEmpty() && TodayStr != LastValidationDate)
         {
-            UE_LOG(LogMCPServer, Log, TEXT("New day detected (%s → %s), re-validating VibeUE API key"), *LastValidationDate, *TodayStr);
+            UE_LOG(LogMCPServer, Log, TEXT("New day detected (%s → %s), re-validating Iconic API key"), *LastValidationDate, *TodayStr);
             ValidateVibeUEApiKeyAsync();
         }
     }

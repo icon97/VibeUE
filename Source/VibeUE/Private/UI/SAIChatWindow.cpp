@@ -2571,21 +2571,6 @@ FReply SAIChatWindow::OnSettingsClicked()
         ChatSession->SetVibeUEApiKey(VibeUEApiKeyInput->GetText().ToString());
         ChatSession->SetApiKey(OpenRouterApiKeyInput->GetText().ToString());
 
-        // ---- OpenRouter model selection ----
-        if (SettingsSelectedModelPtr->IsValid())
-        {
-            FString SelectedModelId = (*SettingsSelectedModelPtr)->Id;
-            GConfig->SetString(TEXT("VibeUE"), TEXT("OpenRouterLastModel"), *SelectedModelId, GEditorPerProjectIni);
-            GConfig->Flush(false, GEditorPerProjectIni);
-            ChatSession->SetCurrentModel(SelectedModelId);
-            // Sync the main chat window model dropdown
-            SelectedModel = *SettingsSelectedModelPtr;
-            if (ModelComboBox.IsValid())
-            {
-                ModelComboBox->SetSelectedItem(SelectedModel);
-            }
-        }
-
         // ---- Provider ----
         ELLMProvider NewProvider = ELLMProvider::VibeUE;
         if (SelectedProviderPtr->IsValid())
@@ -2601,6 +2586,25 @@ FReply SAIChatWindow::OnSettingsClicked()
             }
         }
         ChatSession->SetCurrentProvider(NewProvider);
+
+        // Avoid showing or persisting a model from the previously active provider while the new
+        // provider's models are being fetched. The fetch callback will select the saved model only
+        // if it is present in the fresh list, otherwise it falls back to the first supported model.
+        SelectedModel.Reset();
+        if (ModelComboBox.IsValid())
+        {
+            ModelComboBox->ClearSelection();
+            ModelComboBox->RefreshOptions();
+        }
+
+        // ---- OpenRouter model selection ----
+        if (NewProvider == ELLMProvider::OpenRouter && SettingsSelectedModelPtr->IsValid())
+        {
+            FString SelectedModelId = (*SettingsSelectedModelPtr)->Id;
+            GConfig->SetString(TEXT("VibeUE"), TEXT("OpenRouterLastModel"), *SelectedModelId, GEditorPerProjectIni);
+            GConfig->Flush(false, GEditorPerProjectIni);
+            ChatSession->SetCurrentModel(SelectedModelId);
+        }
 
         // ---- General ----
         FChatSession::SetDebugModeEnabled(DebugModeCheckBox->IsChecked());
@@ -2823,10 +2827,14 @@ FText SAIChatWindow::GetSelectedModelText() const
     {
         return FText::FromString(SelectedModel->GetDisplayString());
     }
-    
-    // Show current model from session
-    FString CurrentModel = ChatSession.IsValid() ? ChatSession->GetCurrentModel() : TEXT("Loading...");
-    return FText::FromString(CurrentModel);
+
+    if (ChatSession.IsValid() && !ChatSession->HasApiKey())
+    {
+        FLLMProviderInfo ProviderInfo = ChatSession->GetCurrentProviderInfo();
+        return FText::FromString(FString::Printf(TEXT("Enter %s API key..."), *ProviderInfo.DisplayName));
+    }
+
+    return FText::FromString(TEXT("Select a model..."));
 }
 
 void SAIChatWindow::HandleMessageAdded(const FChatMessage& Message)
@@ -3012,89 +3020,92 @@ void SAIChatWindow::HandleChatError(const FString& ErrorMessage)
 
 void SAIChatWindow::HandleModelsFetched(bool bSuccess, const TArray<FOpenRouterModel>& Models)
 {
-    if (bSuccess)
+    AvailableModels.Empty();
+    SelectedModel.Reset();
+
+    if (!bSuccess)
     {
-        AvailableModels.Empty();
-        SelectedModel.Reset();  // Clear old selection when fetching new models
-        
-        // Filter to only models that support tools
-        TArray<FOpenRouterModel> FilteredModels;
-        for (const FOpenRouterModel& Model : Models)
+        if (ModelComboBox.IsValid())
         {
-            if (Model.bSupportsTools)
-            {
-                FilteredModels.Add(Model);
-            }
+            ModelComboBox->ClearSelection();
+            ModelComboBox->RefreshOptions();
         }
-        
-        // Only sort for OpenRouter; VibeUE models are returned in curated order from the API
-        const bool bIsVibeUE = ChatSession.IsValid() && ChatSession->GetCurrentProvider() == ELLMProvider::VibeUE;
-        if (!bIsVibeUE)
+        AddSystemNotification(TEXT("❌ Failed to fetch models"));
+        return;
+    }
+
+    // Filter to only models that support tools
+    TArray<FOpenRouterModel> FilteredModels;
+    for (const FOpenRouterModel& Model : Models)
+    {
+        if (Model.bSupportsTools)
         {
-            FilteredModels.Sort([](const FOpenRouterModel& A, const FOpenRouterModel& B)
-            {
-                // Free models come first
-                if (A.IsFree() != B.IsFree())
-                {
-                    return A.IsFree();
-                }
-                // Then sort by name
-                return A.Name < B.Name;
-            });
+            FilteredModels.Add(Model);
         }
-        
-        CHAT_LOG(Log, TEXT("Filtered to %d models with tool support (from %d total)"), 
-            FilteredModels.Num(), Models.Num());
-        
-        for (const FOpenRouterModel& Model : FilteredModels)
+    }
+
+    // Only sort for OpenRouter; VibeUE models are returned in curated order from the API
+    const bool bIsVibeUE = ChatSession.IsValid() && ChatSession->GetCurrentProvider() == ELLMProvider::VibeUE;
+    if (!bIsVibeUE)
+    {
+        FilteredModels.Sort([](const FOpenRouterModel& A, const FOpenRouterModel& B)
         {
-            TSharedPtr<FOpenRouterModel> ModelPtr = MakeShared<FOpenRouterModel>(Model);
-            AvailableModels.Add(ModelPtr);
-            
-            // Set selected model if it matches current
-            if (Model.Id == ChatSession->GetCurrentModel())
+            // Free models come first
+            if (A.IsFree() != B.IsFree())
             {
-                SelectedModel = ModelPtr;
+                return A.IsFree();
             }
-        }
-        
-        // If no model selected yet, pick first free model with tool support
-        if (!SelectedModel.IsValid() && AvailableModels.Num() > 0)
+            // Then sort by name
+            return A.Name < B.Name;
+        });
+    }
+
+    CHAT_LOG(Log, TEXT("Filtered to %d models with tool support (from %d total)"),
+        FilteredModels.Num(), Models.Num());
+
+    const FString CurrentModel = ChatSession.IsValid() ? ChatSession->GetCurrentModel() : TEXT("");
+    for (const FOpenRouterModel& Model : FilteredModels)
+    {
+        TSharedPtr<FOpenRouterModel> ModelPtr = MakeShared<FOpenRouterModel>(Model);
+        AvailableModels.Add(ModelPtr);
+
+        // Select the saved/current model only if it exists in the fresh provider model list.
+        if (Model.Id == CurrentModel)
         {
-            for (const TSharedPtr<FOpenRouterModel>& ModelPtr : AvailableModels)
-            {
-                if (ModelPtr->IsFree())
-                {
-                    SelectedModel = ModelPtr;
-                    ChatSession->SetCurrentModel(ModelPtr->Id);
-                    break;
-                }
-            }
-            // If no free model found, use first available
-            if (!SelectedModel.IsValid())
-            {
-                SelectedModel = AvailableModels[0];
-                ChatSession->SetCurrentModel(SelectedModel->Id);
-            }
+            SelectedModel = ModelPtr;
         }
-        
+    }
+
+    // If saved/current model was stale or absent, fall back to the first fetched supported model.
+    if (!SelectedModel.IsValid() && AvailableModels.Num() > 0)
+    {
+        SelectedModel = AvailableModels[0];
+    }
+
+    if (SelectedModel.IsValid() && ChatSession.IsValid())
+    {
+        ChatSession->SetCurrentModel(SelectedModel->Id);
+    }
+
+    if (ModelComboBox.IsValid())
+    {
         ModelComboBox->RefreshOptions();
-        
+
         if (SelectedModel.IsValid())
         {
             ModelComboBox->SetSelectedItem(SelectedModel);
         }
-        
-        CHAT_LOG(Log, TEXT("Loaded %d models with tool support (from %d total)"), 
-            AvailableModels.Num(), Models.Num());
-        
-        // Fetch model ratings from VibeUE website to color-code and sort
-        FetchModelRatings();
+        else
+        {
+            ModelComboBox->ClearSelection();
+        }
     }
-    else
-    {
-        AddSystemNotification(TEXT("❌ Failed to fetch models"));
-    }
+
+    CHAT_LOG(Log, TEXT("Loaded %d models with tool support (from %d total)"),
+        AvailableModels.Num(), Models.Num());
+
+    // Fetch model ratings from VibeUE website to color-code and sort
+    FetchModelRatings();
 }
 
 void SAIChatWindow::FetchModelRatings()
@@ -3256,6 +3267,20 @@ void SAIChatWindow::UpdateModelDropdownForProvider()
 {
     if (!ChatSession.IsValid())
     {
+        return;
+    }
+
+    AvailableModels.Empty();
+    SelectedModel.Reset();
+    if (ModelComboBox.IsValid())
+    {
+        ModelComboBox->ClearSelection();
+        ModelComboBox->RefreshOptions();
+    }
+
+    if (!ChatSession->HasApiKey())
+    {
+        CHAT_LOG(Log, TEXT("Skipping model fetch: active provider has no API key"));
         return;
     }
 

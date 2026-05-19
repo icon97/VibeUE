@@ -521,12 +521,52 @@ struct VIBEUE_API FOpenRouterModel
             Model.PricingPrompt = 0.0f;
             Model.PricingCompletion = 0.0f;
             
-            // Check capabilities object for tool_calling
+            bool bHasToolSupportMetadata = false;
+            bool bParsedSupportsTools = false;
+
+            auto ReadToolSupportBool = [&bHasToolSupportMetadata, &bParsedSupportsTools](const TSharedPtr<FJsonObject>& SourceObject, const TCHAR* FieldName) -> bool
+            {
+                bool bFieldValue = false;
+                if (SourceObject.IsValid() && SourceObject->TryGetBoolField(FieldName, bFieldValue))
+                {
+                    bHasToolSupportMetadata = true;
+                    bParsedSupportsTools = bFieldValue;
+                    return true;
+                }
+                return false;
+            };
+
+            // Check capabilities object for common tool support flags
             const TSharedPtr<FJsonObject>* CapabilitiesObject;
             if (JsonObject->TryGetObjectField(TEXT("capabilities"), CapabilitiesObject))
             {
-                Model.bSupportsTools = (*CapabilitiesObject)->GetBoolField(TEXT("tool_calling"));
+                ReadToolSupportBool(*CapabilitiesObject, TEXT("tool_calling")) ||
+                    ReadToolSupportBool(*CapabilitiesObject, TEXT("tools"));
             }
+
+            // Check OpenAI/OpenRouter-style supported_parameters array
+            const TArray<TSharedPtr<FJsonValue>>* SupportedParams;
+            if (JsonObject->TryGetArrayField(TEXT("supported_parameters"), SupportedParams))
+            {
+                bHasToolSupportMetadata = true;
+                for (const auto& Param : *SupportedParams)
+                {
+                    const FString ParamName = Param->AsString();
+                    if (ParamName == TEXT("tools") || ParamName == TEXT("tool_choice"))
+                    {
+                        bParsedSupportsTools = true;
+                        break;
+                    }
+                }
+            }
+
+            // Check direct bool fields used by OpenAI/OpenRouter-compatible responses
+            ReadToolSupportBool(JsonObject, TEXT("supports_tools")) ||
+                ReadToolSupportBool(JsonObject, TEXT("supportsTools")) ||
+                ReadToolSupportBool(JsonObject, TEXT("tool_calling")) ||
+                ReadToolSupportBool(JsonObject, TEXT("tools"));
+
+            Model.bSupportsTools = bHasToolSupportMetadata ? bParsedSupportsTools : true;
         }
         return Model;
     }
