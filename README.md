@@ -442,7 +442,7 @@ The built-in chat interface runs directly in Unreal Editor:
 
 - **Menu**: `Window > VibeUE > AI Chat`
 - **Features**: Tool integration, conversation history, external MCP support
-- **Providers**: VibeUE API (free) or OpenRouter
+- **Providers**: Iconic backend or OpenRouter
 
 ### Configuration (Project Settings > Plugins > VibeUE)
 

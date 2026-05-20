@@ -2653,7 +2653,7 @@ FReply SAIChatWindow::OnSettingsClicked()
         GConfig->Flush(false, GEditorPerProjectIni);
         UpdateModelDropdownForProvider();
 
-        FString ProviderName = NewProvider == ELLMProvider::OpenRouter ? TEXT("OpenRouter") : TEXT("VibeUE API");
+        FString ProviderName = NewProvider == ELLMProvider::OpenRouter ? TEXT("OpenRouter") : TEXT("Iconic API");
         AddSystemNotification(FString::Printf(TEXT("✅ Settings saved — using %s"), *ProviderName));
 
         SettingsWindow->RequestDestroyWindow();

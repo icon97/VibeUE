@@ -19,7 +19,7 @@ Revolutionize your Unreal Engine workflow with AI-powered Blueprint and UMG auto
 • StateTree Behavior - Create AI state machines with states, tasks, evaluators, and transitions
 • Sound Cues & MetaSounds - Build audio graphs, add nodes, wire pins, set properties procedurally
 • Project/Engine Settings - Direct access to editor configuration
-• Iconic backend integration for AI-powered editor workflows
+• Built-in AI provider support - Configure your Iconic API key or use OpenRouter
 
 
 🛠️ CORE CAPABILITIES:
@@ -36,16 +36,16 @@ Revolutionize your Unreal Engine workflow with AI-powered Blueprint and UMG auto
 
 🎯 TWO WAYS TO USE:
 
-• In-Editor Chat: Configure your Iconic API key, open chat window, start creating!
+• In-Editor Chat: Configure your Iconic API key or OpenRouter key, open chat window, start creating!
 • External MCP: Connect VS Code, Cursor, Claude Code via HTTP MCP
 
 
 📚 COMPREHENSIVE RESOURCES:
 
-• Complete Documentation: included README and in-editor help
-• Tool Reference Guide: included README and in-editor help
-• Video Tutorials: included project examples and help content
-• Iconic API key configuration available in the in-editor settings
+• Complete Documentation: Included with the plugin README and skill guides
+• Tool Reference Guide: Included with the plugin documentation
+• Video Tutorials: Check the marketplace listing for current resources
+• API Key: Configure your Iconic API key or OpenRouter key in settings
 
 
 Transform your Unreal Engine development from manual to magical. Understand existing Blueprints, learn how materials work, and create new content through natural conversation!
