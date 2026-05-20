@@ -586,14 +586,12 @@ struct VIBEUE_API FOpenRouterModel
             Prefix = TEXT("\u2B50 "); // Gold star emoji
         }
         
-        if (IsFree())
-        {
-            return FString::Printf(TEXT("%s[FREE] %s (%dK)"), *Prefix, *Name, ContextLength / 1024);
-        }
-        else
+        if (PricingPrompt > 0.0f)
         {
             return FString::Printf(TEXT("%s%s (%dK) $%.2f/1M"), *Prefix, *Name, ContextLength / 1024, PricingPrompt);
         }
+
+        return FString::Printf(TEXT("%s%s (%dK)"), *Prefix, *Name, ContextLength / 1024);
     }
 };
 

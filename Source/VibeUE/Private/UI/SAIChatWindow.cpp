@@ -2783,13 +2783,13 @@ TSharedRef<SWidget> SAIChatWindow::GenerateModelComboItem(TSharedPtr<FOpenRouter
     
     // Build display string without star (star gets its own gold-colored text)
     FString DisplayStr;
-    if (Model->IsFree())
+    if (Model->PricingPrompt > 0.0f)
     {
-        DisplayStr = FString::Printf(TEXT("[FREE] %s (%dK)"), *Model->Name, Model->ContextLength / 1024);
+        DisplayStr = FString::Printf(TEXT("%s (%dK) $%.2f/1M"), *Model->Name, Model->ContextLength / 1024, Model->PricingPrompt);
     }
     else
     {
-        DisplayStr = FString::Printf(TEXT("%s (%dK) $%.2f/1M"), *Model->Name, Model->ContextLength / 1024, Model->PricingPrompt);
+        DisplayStr = FString::Printf(TEXT("%s (%dK)"), *Model->Name, Model->ContextLength / 1024);
     }
     
     if (Model->Rating == TEXT("great"))
