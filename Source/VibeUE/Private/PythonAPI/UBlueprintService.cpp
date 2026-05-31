@@ -548,6 +548,47 @@ TArray<FBlueprintFunctionInfo> UBlueprintService::ListFunctions(const FString& B
 	return Functions;
 }
 
+TArray<FBlueprintGraphInfo> UBlueprintService::ListGraphs(const FString& BlueprintPath)
+{
+	TArray<FBlueprintGraphInfo> Graphs;
+
+	UBlueprint* Blueprint = LoadBlueprint(BlueprintPath);
+	if (!Blueprint)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("UBlueprintService::ListGraphs: Failed to load blueprint: %s"), *BlueprintPath);
+		return Graphs;
+	}
+
+	// Emit one FBlueprintGraphInfo per graph in a given collection
+	auto AppendGraphs = [&Graphs](const TArray<UEdGraph*>& Source, const TCHAR* Kind)
+	{
+		for (UEdGraph* Graph : Source)
+		{
+			if (!Graph)
+			{
+				continue;
+			}
+
+			FBlueprintGraphInfo Info;
+			Info.GraphName = Graph->GetName();
+			Info.GraphKind = Kind;
+			Info.NodeCount = Graph->Nodes.Num();
+			Graphs.Add(MoveTemp(Info));
+		}
+	};
+
+	// UbergraphPages = the event-graph tabs (default "EventGraph" + any user-added pages).
+	// FunctionGraphs = user functions, overrides, and auto-generated input event functions.
+	// MacroGraphs   = blueprint macros.
+	// DelegateSignatureGraphs = event dispatcher signature graphs.
+	AppendGraphs(Blueprint->UbergraphPages,          TEXT("Ubergraph"));
+	AppendGraphs(Blueprint->FunctionGraphs,          TEXT("Function"));
+	AppendGraphs(Blueprint->MacroGraphs,             TEXT("Macro"));
+	AppendGraphs(Blueprint->DelegateSignatureGraphs, TEXT("DelegateSignature"));
+
+	return Graphs;
+}
+
 bool UBlueprintService::OpenFunctionGraph(const FString& BlueprintPath, const FString& FunctionName)
 {
 	UBlueprint* Blueprint = LoadBlueprint(BlueprintPath);
@@ -8180,15 +8221,7 @@ FString UBlueprintService::AddDelegateBindNode(
 	}
 	else
 	{
-		OwnerClass = FindFirstObject<UClass>(*TargetClass, EFindFirstObjectOptions::ExactClass);
-		if (!OwnerClass)
-		{
-			OwnerClass = FindFirstObject<UClass>(*FString::Printf(TEXT("U%s"), *TargetClass), EFindFirstObjectOptions::ExactClass);
-		}
-		if (!OwnerClass)
-		{
-			OwnerClass = FindFirstObject<UClass>(*FString::Printf(TEXT("A%s"), *TargetClass), EFindFirstObjectOptions::ExactClass);
-		}
+		OwnerClass = ResolveClassByName(TargetClass);
 	}
 
 	if (!OwnerClass)
@@ -8226,6 +8259,141 @@ FString UBlueprintService::AddDelegateBindNode(
 
 	FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
 	UE_LOG(LogTemp, Log, TEXT("AddDelegateBindNode: Added bind node for %s::%s in %s"), *OwnerClass->GetName(), *DelegateName, *GraphName);
+
+	return DelegateNode->NodeGuid.ToString();
+}
+
+FString UBlueprintService::AddDelegateBindOnVariable(
+	const FString& BlueprintPath,
+	const FString& GraphName,
+	const FString& VariableName,
+	const FString& DelegateName,
+	float PosX,
+	float PosY)
+{
+	UBlueprint* Blueprint = LoadBlueprint(BlueprintPath);
+	if (!Blueprint)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddDelegateBindOnVariable: Failed to load blueprint: %s"), *BlueprintPath);
+		return FString();
+	}
+
+	UEdGraph* Graph = FindGraph(Blueprint, GraphName);
+	if (!Graph)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddDelegateBindOnVariable: Graph '%s' not found in %s"), *GraphName, *BlueprintPath);
+		return FString();
+	}
+
+	if (!Blueprint->GeneratedClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddDelegateBindOnVariable: Blueprint '%s' has no GeneratedClass — compile it first"), *BlueprintPath);
+		return FString();
+	}
+
+	// Resolve the variable's owner class via its property on the GeneratedClass.
+	FProperty* VarProperty = Blueprint->GeneratedClass->FindPropertyByName(FName(*VariableName));
+	if (!VarProperty)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddDelegateBindOnVariable: Variable '%s' not found on %s"), *VariableName, *BlueprintPath);
+		return FString();
+	}
+
+	UClass* OwnerClass = nullptr;
+	if (FObjectProperty* ObjProp = CastField<FObjectProperty>(VarProperty))
+	{
+		OwnerClass = ObjProp->PropertyClass;
+	}
+	else if (FClassProperty* ClassProp = CastField<FClassProperty>(VarProperty))
+	{
+		OwnerClass = ClassProp->MetaClass;
+	}
+
+	if (!OwnerClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddDelegateBindOnVariable: Variable '%s' is not an object reference — cannot bind to a delegate on it"), *VariableName);
+		return FString();
+	}
+
+	// Find the multicast delegate on the owner class (case-insensitive).
+	FMulticastDelegateProperty* DelegateProp = nullptr;
+	for (TFieldIterator<FMulticastDelegateProperty> PropIt(OwnerClass); PropIt; ++PropIt)
+	{
+		if (PropIt->GetName().Equals(DelegateName, ESearchCase::IgnoreCase))
+		{
+			DelegateProp = *PropIt;
+			break;
+		}
+	}
+
+	if (!DelegateProp)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddDelegateBindOnVariable: Delegate '%s' not found on class '%s' (from variable '%s')"), *DelegateName, *OwnerClass->GetName(), *VariableName);
+		return FString();
+	}
+
+	// Create the bind node (Target is NOT self — it's the variable's class).
+	UK2Node_AddDelegate* DelegateNode = NewObject<UK2Node_AddDelegate>(Graph);
+	DelegateNode->SetFromProperty(DelegateProp, /*bSelfContext=*/false, OwnerClass);
+	Graph->AddNode(DelegateNode, false, false);
+	DelegateNode->CreateNewGuid();
+	DelegateNode->PostPlacedNewNode();
+	DelegateNode->AllocateDefaultPins();
+	DelegateNode->NodePosX = PosX;
+	DelegateNode->NodePosY = PosY;
+
+	// Create a Get node for the variable to the left of the bind node.
+	UK2Node_VariableGet* GetterNode = NewObject<UK2Node_VariableGet>(Graph);
+	GetterNode->VariableReference.SetSelfMember(FName(*VariableName));
+	Graph->AddNode(GetterNode, false, false);
+	GetterNode->CreateNewGuid();
+	GetterNode->PostPlacedNewNode();
+	GetterNode->AllocateDefaultPins();
+	GetterNode->NodePosX = PosX - 250.0f;
+	GetterNode->NodePosY = PosY + 16.0f;
+
+	// Wire variable output -> bind node's Target (self) pin.
+	UEdGraphPin* VarOutPin = nullptr;
+	for (UEdGraphPin* Pin : GetterNode->Pins)
+	{
+		if (Pin && Pin->Direction == EGPD_Output)
+		{
+			VarOutPin = Pin;
+			break;
+		}
+	}
+
+	UEdGraphPin* SelfPin = DelegateNode->FindPin(UEdGraphSchema_K2::PN_Self, EGPD_Input);
+	if (!SelfPin)
+	{
+		// Fallback: first input object pin (some delegate node variants name it differently).
+		for (UEdGraphPin* Pin : DelegateNode->Pins)
+		{
+			if (Pin && Pin->Direction == EGPD_Input && Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Object)
+			{
+				SelfPin = Pin;
+				break;
+			}
+		}
+	}
+
+	if (VarOutPin && SelfPin)
+	{
+		const UEdGraphSchema* Schema = Graph->GetSchema();
+		Schema->TryCreateConnection(VarOutPin, SelfPin);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AddDelegateBindOnVariable: Created nodes but could not auto-wire Target pin for %s::%s (var pin: %s, self pin: %s)"),
+			*OwnerClass->GetName(), *DelegateName,
+			VarOutPin ? TEXT("ok") : TEXT("missing"),
+			SelfPin ? TEXT("ok") : TEXT("missing"));
+	}
+
+	FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+	UE_LOG(LogTemp, Log, TEXT("AddDelegateBindOnVariable: %s::%s bound via variable '%s' in %s — bind=%s, getter=%s"),
+		*OwnerClass->GetName(), *DelegateName, *VariableName, *GraphName,
+		*DelegateNode->NodeGuid.ToString(), *GetterNode->NodeGuid.ToString());
 
 	return DelegateNode->NodeGuid.ToString();
 }
@@ -10878,6 +11046,161 @@ bool UBlueprintService::GetGraphDefinition(
 
 	UE_LOG(LogTemp, Log, TEXT("GetGraphDefinition: Exported %d nodes, %d connections, %d pin defaults from %s::%s"),
 		OutNodes.Num(), OutConnections.Num(), OutPinDefaults.Num(), *BlueprintPath, *GraphName);
+
+	return true;
+}
+
+bool UBlueprintService::AddInterface(
+	const FString& BlueprintPath,
+	const FString& InterfacePath)
+{
+	UBlueprint* Blueprint = LoadBlueprint(BlueprintPath);
+	if (!Blueprint)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddInterface: Failed to load blueprint: %s"), *BlueprintPath);
+		return false;
+	}
+
+	if (InterfacePath.IsEmpty())
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddInterface: Interface path is empty"));
+		return false;
+	}
+
+	// Resolve interface class - try multiple strategies
+	UClass* InterfaceClass = nullptr;
+
+	// Strategy 1: Try loading as a Blueprint asset path
+	UBlueprint* InterfaceBP = Cast<UBlueprint>(StaticLoadObject(UBlueprint::StaticClass(), nullptr, *InterfacePath));
+	if (InterfaceBP)
+	{
+		InterfaceClass = InterfaceBP->GeneratedClass;
+	}
+
+	// Strategy 2: Try with _C suffix as a class path
+	if (!InterfaceClass)
+	{
+		FString ClassPath = InterfacePath;
+		if (!ClassPath.EndsWith(TEXT("_C")))
+		{
+			ClassPath = InterfacePath + TEXT(".") + FPaths::GetCleanFilename(InterfacePath) + TEXT("_C");
+		}
+		InterfaceClass = LoadClass<UObject>(nullptr, *ClassPath);
+	}
+
+	// Strategy 3: Search by short name across all loaded Blueprint assets
+	if (!InterfaceClass)
+	{
+		for (TObjectIterator<UBlueprint> It; It; ++It)
+		{
+			if (It->GetName().Equals(InterfacePath, ESearchCase::IgnoreCase) ||
+				It->GetName().Equals(InterfacePath.Replace(TEXT("/"), TEXT("")), ESearchCase::IgnoreCase))
+			{
+				if (It->BlueprintType == BPTYPE_Interface)
+				{
+					InterfaceClass = It->GeneratedClass;
+					UE_LOG(LogTemp, Log, TEXT("AddInterface: Resolved interface '%s' via object search to '%s'"), *InterfacePath, *It->GetPathName());
+					break;
+				}
+			}
+		}
+	}
+
+	if (!InterfaceClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddInterface: Interface '%s' not found. Provide the full asset path (e.g., /Game/interface/BPI_TestInterface)"), *InterfacePath);
+		return false;
+	}
+
+	// The resolved class must actually be an interface. Implementing a non-interface
+	// class and then compiling trips an engine assertion in the Kismet compiler
+	// (Interface->HasAnyClassFlags(CLASS_Interface)), which crashes the editor.
+	// Reject it here instead.
+	if (!InterfaceClass->HasAnyClassFlags(CLASS_Interface))
+	{
+		UE_LOG(LogTemp, Error, TEXT("AddInterface: '%s' resolves to '%s', which is not a Blueprint Interface. Provide a Blueprint Interface asset."),
+			*InterfacePath, *InterfaceClass->GetName());
+		return false;
+	}
+
+	// Check if interface is already implemented
+	for (const FBPInterfaceDescription& Desc : Blueprint->ImplementedInterfaces)
+	{
+		if (Desc.Interface == InterfaceClass)
+		{
+			UE_LOG(LogTemp, Log, TEXT("AddInterface: Interface '%s' is already implemented on '%s'"), *InterfaceClass->GetName(), *Blueprint->GetName());
+			return true;
+		}
+	}
+
+	// Add the interface
+	FTopLevelAssetPath InterfaceAssetPath = InterfaceClass->GetClassPathName();
+	FBlueprintEditorUtils::ImplementNewInterface(Blueprint, InterfaceAssetPath);
+
+	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+	FKismetEditorUtilities::CompileBlueprint(Blueprint);
+
+	UE_LOG(LogTemp, Log, TEXT("AddInterface: Added interface '%s' to '%s'"),
+		*InterfaceClass->GetName(), *Blueprint->GetName());
+
+	return true;
+}
+
+bool UBlueprintService::RemoveInterface(
+	const FString& BlueprintPath,
+	const FString& InterfacePath)
+{
+	UBlueprint* Blueprint = LoadBlueprint(BlueprintPath);
+	if (!Blueprint)
+	{
+		UE_LOG(LogTemp, Error, TEXT("RemoveInterface: Failed to load blueprint: %s"), *BlueprintPath);
+		return false;
+	}
+
+	if (InterfacePath.IsEmpty())
+	{
+		UE_LOG(LogTemp, Error, TEXT("RemoveInterface: Interface path is empty"));
+		return false;
+	}
+
+	// Find the interface in the implemented list
+	UClass* InterfaceClass = nullptr;
+	int32 FoundIndex = INDEX_NONE;
+
+	for (int32 i = 0; i < Blueprint->ImplementedInterfaces.Num(); ++i)
+	{
+		const FBPInterfaceDescription& Desc = Blueprint->ImplementedInterfaces[i];
+		if (Desc.Interface)
+		{
+			FString InterfaceName = Desc.Interface->GetName();
+			FString InterfacePkgPath = Desc.Interface->GetPathName();
+
+			if (InterfaceName.Equals(InterfacePath, ESearchCase::IgnoreCase) ||
+				InterfaceName.Equals(InterfacePath + TEXT("_C"), ESearchCase::IgnoreCase) ||
+				InterfacePkgPath.Contains(InterfacePath))
+			{
+				InterfaceClass = Desc.Interface;
+				FoundIndex = i;
+				break;
+			}
+		}
+	}
+
+	if (FoundIndex == INDEX_NONE)
+	{
+		UE_LOG(LogTemp, Error, TEXT("RemoveInterface: Interface '%s' not found on blueprint '%s'"), *InterfacePath, *Blueprint->GetName());
+		return false;
+	}
+
+	// Remove the interface
+	FTopLevelAssetPath InterfaceAssetPath = InterfaceClass->GetClassPathName();
+	FBlueprintEditorUtils::RemoveInterface(Blueprint, InterfaceAssetPath);
+
+	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+	FKismetEditorUtilities::CompileBlueprint(Blueprint);
+
+	UE_LOG(LogTemp, Log, TEXT("RemoveInterface: Removed interface '%s' from '%s'"),
+		*InterfaceClass->GetName(), *Blueprint->GetName());
 
 	return true;
 }
