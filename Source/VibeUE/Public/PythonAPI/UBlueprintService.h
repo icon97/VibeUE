@@ -35,6 +35,29 @@ struct FBlueprintVariableInfo
 };
 
 /**
+ * Information about a single UEdGraph attached to a Blueprint.
+ * Returned by ListGraphs — one entry per graph tab visible in the
+ * Blueprint editor (ubergraph pages, functions, macros, delegate signatures).
+ */
+USTRUCT(BlueprintType)
+struct FBlueprintGraphInfo
+{
+	GENERATED_BODY()
+
+	/** Tab name as shown in the My Blueprint panel (e.g. "EventGraph", "Graph_PlayerInput", "MyFunction") */
+	UPROPERTY(BlueprintReadWrite, Category = "Blueprint")
+	FString GraphName;
+
+	/** "Ubergraph" | "Function" | "Macro" | "DelegateSignature" */
+	UPROPERTY(BlueprintReadWrite, Category = "Blueprint")
+	FString GraphKind;
+
+	/** Number of nodes in this graph (cheap to compute, useful as a sanity signal) */
+	UPROPERTY(BlueprintReadWrite, Category = "Blueprint")
+	int32 NodeCount = 0;
+};
+
+/**
  * Detailed information about a blueprint variable (for get_info action)
  */
 USTRUCT(BlueprintType)
@@ -984,6 +1007,26 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VibeUE|Blueprints")
 	static TArray<FBlueprintFunctionInfo> ListFunctions(const FString& BlueprintPath);
+
+	/**
+	 * Enumerate every UEdGraph attached to a Blueprint — ubergraph pages, functions,
+	 * macros, and delegate signature graphs.
+	 *
+	 * Use this when you don't know the exact name of a graph tab. The default
+	 * Blueprint editor only exposes "EventGraph" by name; user-created ubergraph
+	 * pages (e.g. "Graph_PlayerInput") and inherited function graphs are invisible
+	 * without this enumeration.
+	 *
+	 * @param BlueprintPath - Full path to the blueprint (e.g., "/Game/Blueprints/BP_Player_Test")
+	 * @return Array of FBlueprintGraphInfo, one per graph
+	 *
+	 * Example:
+	 *   graphs = unreal.BlueprintService.list_graphs("/Game/Blueprints/BP_Player_Test")
+	 *   for g in graphs:
+	 *       print(f"{g.graph_kind:20}  {g.graph_name:30}  ({g.node_count} nodes)")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VibeUE|Blueprints")
+	static TArray<FBlueprintGraphInfo> ListGraphs(const FString& BlueprintPath);
 
 	/**
 	 * Open a blueprint and navigate to a specific function graph.
@@ -2729,7 +2772,11 @@ public:
 	 *
 	 * @param BlueprintPath - Full path to the blueprint
 	 * @param GraphName - Name of the graph (e.g. "EventGraph")
-	 * @param TargetClass - Class that owns the delegate. Use "Self" or "" for the blueprint's own class.
+	 * @param TargetClass - Class that owns the delegate. Accepts:
+	 *   - "Self" or "" for the blueprint's own class
+	 *   - A native class name with or without U/A prefix (e.g. "Actor", "UButton")
+	 *   - A Blueprint asset path (e.g. "/Game/StateTree/BP_Cube")
+	 *   - A short Blueprint name with or without _C suffix (e.g. "BP_Cube", "BP_Cube_C")
 	 * @param DelegateName - Name of the multicast delegate property (e.g. "OnActorBeginOverlap")
 	 * @param PosX - X position in the graph
 	 * @param PosY - Y position in the graph
@@ -2738,12 +2785,56 @@ public:
 	 * Example:
 	 *   node_id = unreal.BlueprintService.add_delegate_bind_node("/Game/BP_Player", "EventGraph", "Self", "OnDamageTaken", 200, 100)
 	 *   node_id = unreal.BlueprintService.add_delegate_bind_node("/Game/WBP_HUD", "EventGraph", "UButton", "OnClicked", 300, 200)
+	 *   node_id = unreal.BlueprintService.add_delegate_bind_node("/Game/STT_LookAt", "EventGraph", "BP_Cube", "FinishedLooking", 960, 0)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "VibeUE|Blueprints")
 	static FString AddDelegateBindNode(
 		const FString& BlueprintPath,
 		const FString& GraphName,
 		const FString& TargetClass,
+		const FString& DelegateName,
+		float PosX = 0.0f,
+		float PosY = 0.0f
+	);
+
+	/**
+	 * Convenience: bind to an event dispatcher declared on a Blueprint variable's class in one shot.
+	 *
+	 * Resolves the variable's type to its owner class (e.g. variable "Cube : BP_Cube_C" -> BP_Cube_C),
+	 * finds the named multicast delegate on that class, creates a "Bind Event to <Delegate>" node and
+	 * a Get node for the variable, and wires the variable's output pin into the bind node's Target (self).
+	 *
+	 * The variable must be an object-reference type (UObject subclass). For inherited variables the
+	 * owner class is read from the GeneratedClass property, so this works for variables defined on
+	 * parent classes too.
+	 *
+	 * After calling this you still need to:
+	 *   - Wire the bind node's exec input ("execute") from your upstream node
+	 *   - Wire a Custom Event's "OutputDelegate" pin into the bind node's "Delegate" pin
+	 *
+	 * @param BlueprintPath - Full path to the blueprint that contains the graph
+	 * @param GraphName     - Name of the graph (e.g. "EventGraph")
+	 * @param VariableName  - Variable on this blueprint whose type owns the event dispatcher
+	 * @param DelegateName  - Multicast delegate (event dispatcher) on the variable's class
+	 * @param PosX          - X position for the bind node
+	 * @param PosY          - Y position for the bind node
+	 * @return Node ID (GUID) of the bind node if successful, empty string otherwise
+	 *
+	 * Example:
+	 *   # Cube is a BP_Cube_C variable on STT_LookInRandomDirection.
+	 *   # BP_Cube has an event dispatcher "FinishedLooking".
+	 *   bind_id = unreal.BlueprintService.add_delegate_bind_on_variable(
+	 *       "/Game/StateTree/Tasks/STT_LookInRandomDirection",
+	 *       "EventGraph",
+	 *       "Cube",
+	 *       "FinishedLooking",
+	 *       960, 0)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VibeUE|Blueprints")
+	static FString AddDelegateBindOnVariable(
+		const FString& BlueprintPath,
+		const FString& GraphName,
+		const FString& VariableName,
 		const FString& DelegateName,
 		float PosX = 0.0f,
 		float PosY = 0.0f
@@ -3572,6 +3663,40 @@ public:
 		TArray<FGraphConnectionDesc>& OutConnections,
 		TArray<FGraphPinDefaultDesc>& OutPinDefaults,
 		FString& OutError
+	);
+
+	/**
+	 * Add a Blueprint Interface to a blueprint.
+	 * Equivalent to: Class Settings → Interfaces → Add in the editor.
+	 *
+	 * @param BlueprintPath - Full path to the blueprint
+	 * @param InterfacePath - Interface asset path or short name (e.g., "BPI_TestInterface" or "/Game/interface/BPI_TestInterface")
+	 * @return True if the interface was added successfully (or already implemented)
+	 *
+	 * Example:
+	 *   unreal.BlueprintService.add_interface("/Game/BP_Player", "BPI_TestInterface")
+	 *   unreal.BlueprintService.add_interface("/Game/BP_Player", "/Game/interface/BPI_TestInterface")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VibeUE|Blueprints")
+	static bool AddInterface(
+		const FString& BlueprintPath,
+		const FString& InterfacePath
+	);
+
+	/**
+	 * Remove a Blueprint Interface from a blueprint.
+	 *
+	 * @param BlueprintPath - Full path to the blueprint
+	 * @param InterfacePath - Interface asset path or short name
+	 * @return True if the interface was removed successfully
+	 *
+	 * Example:
+	 *   unreal.BlueprintService.remove_interface("/Game/BP_Player", "BPI_TestInterface")
+	 */
+	UFUNCTION(BlueprintCallable, Category = "VibeUE|Blueprints")
+	static bool RemoveInterface(
+		const FString& BlueprintPath,
+		const FString& InterfacePath
 	);
 
 private:

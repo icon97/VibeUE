@@ -17,7 +17,7 @@
 ## ✨ Key Features
 
 - **In-Editor AI Chat** - Chat with AI directly inside Unreal Editor
-- **Python API Services** - 30 specialized services with 1020 methods for Blueprints, Materials, Widgets, Landscape Terrain, Splines, Foliage, Animation Sequences, Animation Blueprints, Animation Montages, Niagara, Skeletons, Sound Cues, MetaSounds, Gameplay Tags, Screenshots, Viewport Control, Runtime Virtual Textures, StateTree Behavior, UV Mapping, Editor Transactions, Project/Engine Settings, and more
+- **Python API Services** - 31 specialized services with 1049 methods for Blueprints, Materials, Widgets, Landscape Terrain, Splines, Foliage, Animation Sequences, Animation Blueprints, Animation Montages, Niagara (systems + emitters + **scratch-pad graph authoring**), Skeletons, Sound Cues, MetaSounds, Gameplay Tags, Screenshots, Viewport Control, Runtime Virtual Textures, StateTree Behavior, UV Mapping, Editor Transactions, Project/Engine Settings, and more
 - **Full Unreal Python Access** - Execute any Unreal Engine Python API through MCP
 - **MCP Tools** - 10 tools for discovery, execution, asset workflows, debugging, terrain generation, and web research
 - **Domain Skills** - 34 lazy-loaded skill packs covering Blueprints, graph editing, materials, terrain, animation, audio, AI, gameplay tags, widgets, viewport, data, PCG (procedural content generation), UV mapping, and more
@@ -41,7 +41,7 @@ Lightweight MCP tools for AI interaction with Unreal:
 | `execute_python_code` | Run Python code in Unreal Editor context |
 | `list_python_subsystems` | List available UE editor subsystems |
 | `manage_skills` | Load domain-specific knowledge on demand |
-| `manage_asset` | Search, open, save, move, duplicate, and delete assets safely |
+| `manage_asset` | Search, open, save, move, duplicate, delete, and import (image files from disk) assets safely |
 | `read_logs` | Read and filter Unreal Engine log files with regex support |
 | `terrain_data` | Generate real-world heightmaps, map images, and water feature data from geographic coordinates |
 | `deep_research` | Web search, page fetching, and GPS geocoding — no API key required |
@@ -125,7 +125,7 @@ manage_skills(action="load", skill_names=["blueprints", "enhanced-input"])
 
 Skill names: `animation-blueprint`, `animation-editing`, `animation-montage`, `animsequence`, `asset-management`, `blueprint-graphs`, `blueprints`, `data-assets`, `data-tables`, `engine-settings`, `enhanced-input`, `enum-struct`, `foliage`, `gameplay-tags`, `landscape`, `landscape-auto-material`, `landscape-materials`, `level-actors`, `materials`, `metasounds`, `niagara-emitters`, `niagara-systems`, `pcg`, `pie-testing`, `project-settings`, `screenshots`, `skeleton`, `sound-cues`, `state-trees`, `terrain-data`, `umg-widgets`, `uv-mapping`, `vibeue`, `viewport`
 
-**Sub-docs (lazy-loaded deep reference material)** — Several skills are split into a concise `skill.md` index plus sibling sub-docs. Load a sub-doc with `skill_name="<skill>/<section>"` (e.g. `state-trees/api-reference`, `blueprint-graphs/build-graph`, `landscape/workflows-editing`). The index response lists every available sub-doc under `available_sections`. This keeps each load small while keeping deep reference material one call away.
+**Sub-docs (lazy-loaded deep reference material)** — Several skills are split into a concise `SKILL.md` index plus sibling sub-docs. Load a sub-doc with `skill_name="<skill>/<section>"` (e.g. `state-trees/api-reference`, `blueprint-graphs/build-graph`, `landscape/workflows-editing`). The index response lists every available sub-doc under `available_sections`. This keeps each load small while keeping deep reference material one call away.
 
 ##### Asset Workflow Tool
 
@@ -143,6 +143,10 @@ manage_asset(action="save_all")
 
 # Move or rename while preserving references
 manage_asset(action="move", source_path="/Game/StateTree/STT_Rotate", destination_path="/Game/StateTree/Tasks/STT_Rotate")
+
+# Import an image file from disk into the Content Browser (png/jpg/tga/exr/psd/...)
+# Use this instead of Python import_asset_tasks, which crashes the editor from a tool call.
+manage_asset(action="import", source_file_path="C:/Images/rocks.jpg", destination_path="/Game/UI/Textures", asset_name="T_Rocks")
 ```
 
 **Important:** Use `move`, not duplicate + delete, when the intent is a rename or relocation. Duplicate creates a second asset identity.
@@ -336,14 +340,14 @@ High-level services exposed to Python for common game development tasks:
 | Service | Methods | Domain |
 |---------|---------|--------|
 | `StateTreeService` | 94 | StateTree asset creation, state hierarchy, state type/link configuration, editor selection, tasks, evaluators, conditions, transitions, delegate bindings, parameters, component overrides, property bindings, **utility AI considerations**, compile/save |
-| `BlueprintService` | 116 | Blueprint lifecycle, variables, functions, components, nodes, **event dispatchers (multicast delegates) + broadcast nodes**, **custom event input pin CRUD**, **timelines (float/vector/color/event tracks, key CRUD)**, comment boxes, batch graph builder, subset auto-layout |
+| `BlueprintService` | 119 | Blueprint lifecycle, variables, functions, components, **interfaces (add/remove)**, nodes, **event dispatchers (multicast delegates) + broadcast nodes + bind-on-variable**, **custom event input pin CRUD**, **timelines (float/vector/color/event tracks, key CRUD)**, comment boxes, batch graph builder, subset auto-layout |
 | `AnimSequenceService` | 89 | Animation sequence creation, keyframes, bone tracks, curves, notifies, preview |
 | `LandscapeService` | 68 | Landscape creation, sculpting, heightmaps, weight layers, holes, splines |
 | `AnimMontageService` | 62 | Animation montages: sections, slots, segments, branching points, blend settings |
 | `SkeletonService` | 53 | Skeleton & skeletal mesh manipulation, bones, sockets, retargeting, curves, blend profiles |
 | `MaterialNodeService` | 41 | Material graph expressions and connections, **material diagnostics (compile errors + sampler info)** |
 | `WidgetService` | 41 | UMG widget blueprints, components, snapshots, styling, animation, preview/PIE validation, and MVVM ViewModel bindings |
-| `AnimGraphService` | 38 | Animation Blueprint state machines, states, transitions, anim nodes |
+| `AnimGraphService` | 48 | Animation Blueprint state machines, states, transitions, transition rules, declarative builder, validation, anim nodes |
 | `SoundCueService` | 38 | Sound cue graph editing, sound node creation, wiring, and audio behavior authoring |
 | `NiagaraService` | 37 | Niagara system lifecycle, emitters, parameters, settings discovery |
 | `ActorService` | 33 | Level actor management, viewport camera control, transform lock/constraints |
@@ -351,10 +355,11 @@ High-level services exposed to Python for common game development tasks:
 | `EngineSettingsService` | 23 | Engine settings, rendering, physics, audio, cvars, scalability |
 | `InputService` | 23 | Enhanced Input actions, contexts, modifiers, triggers |
 | `NiagaraEmitterService` | 23 | Niagara emitter modules, renderers, properties |
+| `NiagaraScratchPadService` | 19 | Niagara scratch-pad module authoring: create modules, add Map Get/Set/Op/Custom HLSL nodes, typed pins, wire pins, declare module inputs/outputs |
 | `LandscapeMaterialService` | 22 | Landscape material layers, blend nodes, auto-material creation, layer info objects, grass output |
 | `UVMappingService` | 22 | **Per-LOD UV channel inspection, transforms, lightmap generation, per-region edits (by normal / polygon group / UV island), auto-unwrap (planar/box/cylindrical), packing, layout export** |
 | `EnumStructService` | 20 | User-defined enums and structs (create, edit, delete) |
-| `AssetDiscoveryService` | 20 | Asset search, import/export, references, move/rename workflows |
+| `AssetDiscoveryService` | 21 | Asset search, import (image files from disk) / export, references, move/rename workflows |
 | `ViewportService` | 19 | Viewport camera type (perspective/ortho), view mode, FOV, clip planes, exposure, game view, cinematic control, camera speed, viewport layout (single/quad) |
 | `MetaSoundService` | 17 | MetaSound graph authoring, nodes, interfaces, inputs/outputs, and wiring |
 | `ProjectSettingsService` | 16 | Project settings, editor preferences, UI configuration |
@@ -546,13 +551,13 @@ Each skill includes:
 - **Common Mistakes** - Things to avoid (wrong property names, etc.)
 - **Property Formats** - How to format values in Unreal string syntax
 
-**Domain Skills** (dynamically discovered from `Content/Skills/*/skill.md`):
+**Domain Skills** (dynamically discovered from `Content/Skills/*/SKILL.md`):
 
-Skills are automatically discovered at runtime from the `Content/Skills/` directory. Each skill folder contains a `skill.md` with YAML frontmatter defining its metadata. The system prompt's `{SKILLS}` token is replaced with a dynamically generated table of all available skills.
+Skills are automatically discovered at runtime from the `Content/Skills/` directory. Each skill folder contains a `SKILL.md` with YAML frontmatter defining its metadata. The system prompt's `{SKILLS}` token is replaced with a dynamically generated table of all available skills.
 
 Current skills include: `animation-blueprint`, `animation-editing`, `animation-montage`, `animsequence`, `asset-management`, `blueprint-graphs`, `blueprints`, `data-assets`, `data-tables`, `engine-settings`, `enhanced-input`, `enum-struct`, `foliage`, `gameplay-tags`, `landscape`, `landscape-auto-material`, `landscape-materials`, `level-actors`, `materials`, `metasounds`, `niagara-emitters`, `niagara-systems`, `pcg`, `pie-testing`, `project-settings`, `screenshots`, `skeleton`, `sound-cues`, `state-trees`, `terrain-data`, `umg-widgets`, `uv-mapping`, `vibeue`, `viewport`
 
-**Skills with sub-docs** — `animsequence`, `blueprint-graphs`, `landscape`, `landscape-auto-material`, and `state-trees` are split into a concise `skill.md` index plus sibling reference sub-docs. The index lists every available sub-doc under `available_sections` and you load one with `skill_name="<skill>/<section>"`. Examples: `state-trees/api-reference`, `state-trees/blueprint-tasks`, `state-trees/event-payloads`, `blueprint-graphs/build-graph`, `blueprint-graphs/array-operations`, `landscape/workflows-editing`.
+**Skills with sub-docs** — `animsequence`, `blueprint-graphs`, `landscape`, `landscape-auto-material`, and `state-trees` are split into a concise `SKILL.md` index plus sibling reference sub-docs. The index lists every available sub-doc under `available_sections` and you load one with `skill_name="<skill>/<section>"`. Examples: `state-trees/api-reference`, `state-trees/blueprint-tasks`, `state-trees/event-payloads`, `blueprint-graphs/build-graph`, `blueprint-graphs/array-operations`, `landscape/workflows-editing`.
 
 ### Using Skills
 
@@ -624,7 +629,7 @@ All services are available via `unreal.<ServiceName>.<method>()`.
 unreal.BlueprintService.create_blueprint("BP_MyActor", "Actor", "/Game/Blueprints")
 ```
 
-### BlueprintService (116 methods)
+### BlueprintService (118 methods)
 
 **Lifecycle:**
 - `create_blueprint(name, parent_class, path)` - Create new blueprint
@@ -656,6 +661,10 @@ unreal.BlueprintService.create_blueprint("BP_MyActor", "Actor", "/Game/Blueprint
 - `get/set_component_property(...)` - Property access
 - `get_component_hierarchy(path)` - Get hierarchy
 
+**Interfaces:**
+- `add_interface(path, interface)` - Implement a Blueprint Interface (idempotent; recompiles inline)
+- `remove_interface(path, interface)` - Remove a Blueprint Interface
+
 **Nodes & Graph Editing:**
 - `add_*_node(...)` - Add nodes (branch, variable, math, cast, event, custom event, function call, etc.)
 - `add_validated_get_node(...)`, `add_member_get_node(...)` - Specialized variable getter nodes
@@ -682,7 +691,8 @@ unreal.BlueprintService.create_blueprint("BP_MyActor", "Actor", "/Game/Blueprint
 - `remove_event_dispatcher(path, name)` - Remove the dispatcher and its signature graph
 - `add_event_dispatcher_parameter(path, name, param_name, param_type, ...)` - Add an input on the signature
 - `add_call_delegate_node(path, graph, name, x, y)` - Spawn the `UK2Node_CallDelegate` (broadcast) node
-- `add_delegate_bind_node(path, graph, target_class, delegate_name, x, y)` - Spawn a Bind Event node to subscribe
+- `add_delegate_bind_node(path, graph, target_class, delegate_name, x, y)` - Spawn a Bind Event node to subscribe. `target_class` accepts `"Self"`, native class names, Blueprint asset paths, or short BP names with/without `_C`
+- `add_delegate_bind_on_variable(path, graph, variable_name, delegate_name, x, y)` - One-shot: derives owner class from a variable's type, creates Bind Event + Get, auto-wires Target (mirrors `add_function_call_on_variable`)
 - `add_create_delegate_node(...)`, `add_create_event_node(...)` - Wrap a function as a delegate reference
 
 **Timelines (full track + key CRUD):**
@@ -698,9 +708,20 @@ unreal.BlueprintService.create_blueprint("BP_MyActor", "Actor", "/Game/Blueprint
 - `get_function_parameters(...)`, `get_graph_definition(...)`, `get_available_components(...)`
 - `compare_components(...)`, `diff_blueprints(...)`
 
-### AnimGraphService (38 methods)
+### AnimGraphService (48 methods)
 
-AnimGraphService provides comprehensive Animation Blueprint manipulation for state machines, states, transitions, and animation nodes:
+AnimGraphService provides comprehensive Animation Blueprint manipulation for state machines, states, transitions, transition rules, and animation nodes — including a declarative one-call builder and a validation pass so AI-authored machines actually run:
+
+**High-Level Authoring (recommended):**
+- `build_state_machine(path, machine, spec_json, x, y)` - Build/extend an entire state machine (states, animations, transitions, rules, entry) from one JSON spec, atomically and idempotently; compiles and returns a JSON report
+- `set_state_animation(path, machine, state, anim_path, loop, play_rate)` - One call: create/assign the state's sequence player AND wire it to Output Pose
+- `validate_state_machine(path, machine)` - Report inert transitions, missing entry state, states with no animation, unreachable states
+
+**Transition Rules (a transition with NO rule never fires):**
+- `set_transition_rule_from_bool(path, machine, source, dest, bool_var, invert)` - Drive a transition from a bool variable
+- `set_transition_rule_comparison(path, machine, source, dest, float_var, op, value)` - Numeric comparison rule (greater/less/greater_equal/less_equal/equal/not_equal)
+- `set_transition_rule_automatic(path, machine, source, dest, trigger_time)` - Auto-fire when the source state's animation is (almost) finished (one-shots)
+- `clear_transition_rule(path, machine, source, dest)` - Non-destructively reset a transition's rule
 
 **State Machine Management:**
 - `add_state_machine(path, name, x, y)` - Add state machine to AnimGraph
@@ -710,14 +731,17 @@ AnimGraphService provides comprehensive Animation Blueprint manipulation for sta
 **State Management:**
 - `add_state(path, machine, name, x, y)` - Add state to state machine
 - `remove_state(path, machine, name, remove_transitions)` - Remove state
+- `set_entry_state(path, machine, state)` - Set the entry/default state (non-destructive re-link)
 - `list_states_in_machine(path, machine)` - List all states and transitions
 - `get_state_info(path, machine, state)` - Get detailed state info
 - `open_anim_state(path, machine, state)` - Open state in editor
 
 **Transition Management:**
-- `add_transition(path, machine, source, dest, blend_duration)` - Add transition
+- `add_transition(path, machine, source, dest, blend_duration)` - Add transition (remember to set a rule!)
 - `remove_transition(path, machine, source, dest)` - Remove transition
-- `get_state_transitions(path, machine, state)` - Get transitions for state
+- `set_transition_priority(path, machine, source, dest, priority)` - Set priority order (lower wins)
+- `set_transition_blend(path, machine, source, dest, blend_duration, blend_mode)` - Set crossfade duration / blend mode
+- `get_state_transitions(path, machine, state)` - Get transitions for state (now includes rule_type/rule_summary/has_rule)
 - `open_transition(path, machine, source, dest)` - Open transition rule in editor
 
 **Conduit Management:**
@@ -888,11 +912,12 @@ AnimMontageService provides comprehensive CRUD operations for Animation Montage 
 - `add_modifier/trigger(...)` - Add modifiers/triggers
 - `get_available_keys(filter)` - List bindable keys
 
-### AssetDiscoveryService (20 methods)
+### AssetDiscoveryService (21 methods)
 
 - `search_assets(term, type)` - Find assets
 - `save_asset(path)` / `save_all_assets()` - Save
-- `import_texture(file, dest)` - Import texture
+- `import_asset(file, dest_folder, name)` - Import an image file from disk (crash-safe; returns asset path + error)
+- `import_texture(file, dest)` - Import texture (full asset path; uses the same safe importer)
 - `export_texture(asset, file)` - Export texture
 - `get_asset_dependencies/referencers(path)` - References
 
@@ -1207,6 +1232,43 @@ FoliageService provides foliage type management, instance scattering, layer-awar
 **Emitter Properties:**
 - `get_emitter_properties(system, emitter)` - Get lifecycle and property info
 - `get_rapid_iteration_parameters(system, emitter, type)` - Get rapid iteration parameters
+
+### NiagaraScratchPadService (19 methods)
+
+Authors scratch-pad module graphs from Python without an open editor. `NiagaraEmitterService` can list/add stack modules; `NiagaraScratchPadService` reaches *inside* a scratch module to build its node graph - Map Get reads, Map Set writes, math (`UNiagaraNodeOp`), Custom HLSL with typed input/output pins, and schema-validated pin connections.
+
+**Module lifecycle:**
+- `create_scratch_module(system, emitter, stage, name)` - Create an empty scratch module on a stage
+- `get_scratch_script_path(system, emitter, module)` - Resolve the backing scratch UNiagaraScript's object path
+- `list_scratch_modules(system, emitter)` - List all scratch modules across the emitter's stacks
+
+**Graph inspection:**
+- `list_nodes(system, emitter, module)` - List nodes in the scratch graph
+- `get_node_pins(system, emitter, module, node_id)` - Get a node's input/output pins
+- `list_connections(system, emitter, module)` - List all wires
+
+**Node authoring:**
+- `add_node(system, emitter, module, node_type, x, y)` - Create MapGet/MapSet/If/Input nodes
+- `add_op_node(system, emitter, module, op_name, x, y)` - Create a math op node (e.g. `Numeric::Multiply`)
+- `add_custom_hlsl_node(system, emitter, module, code, x, y)` - Create a Custom HLSL node with code
+- `set_custom_hlsl_code(system, emitter, module, node_id, code)` - Replace HLSL body
+- `get_custom_hlsl_code(system, emitter, module, node_id)` - Read HLSL body
+- `add_pin(system, emitter, module, node_id, direction, type, name)` - Add a typed pin (Custom HLSL via RequestNewTypedPin, MapGet/Set via AddParameterPin)
+- `delete_node(system, emitter, module, node_id)`
+- `set_node_position(system, emitter, module, node_id, x, y)`
+
+**Wiring:**
+- `connect_pins(system, emitter, module, from_node, from_pin, to_node, to_pin)` - Validated through `UEdGraphSchema_Niagara::TryCreateConnection`
+- `disconnect_pin(system, emitter, module, node_id, pin_name)`
+
+**Module signature helpers:**
+- `add_module_input(system, emitter, module, input_name, type)` - Adds `Module.<name>` to the Map Get (creating it if needed). Exposes the input on the stack.
+- `add_module_output(system, emitter, module, output_name, type)` - Adds a write to the Map Set.
+
+**Apply:**
+- `apply_changes(system_path)` - Refreshes every scratch-referencing stack module, rebuilds emitter nodes, recompiles, and saves. Call once at the end of a batch of edits.
+
+See the [`niagara-emitters` skill](Content/Skills/niagara-emitters/SKILL.md) for an end-to-end example that builds a Custom-HLSL splat module.
 
 ### ScreenshotService (5 methods)
 
@@ -1923,7 +1985,7 @@ The system prompt supports dynamic token replacement. When the instructions are 
 
 | Token | Replacement | Source |
 |-------|-------------|--------|
-| `{SKILLS}` | Skills table with names, descriptions, and services | Scanned from `Content/Skills/*/skill.md` frontmatter |
+| `{SKILLS}` | Skills table with names, descriptions, and services | Scanned from `Content/Skills/*/SKILL.md` frontmatter |
 
 **Example usage in `vibeue.instructions.md`:**
 
@@ -1945,7 +2007,7 @@ Load skills using `manage_skills(action="load", skill_name="<name>")`:
 ...
 ```
 
-This allows the skills list to stay in sync automatically when skills are added, removed, or modified. Each skill's metadata is defined in its `skill.md` YAML frontmatter:
+This allows the skills list to stay in sync automatically when skills are added, removed, or modified. Each skill's metadata is defined in its `SKILL.md` YAML frontmatter:
 
 ```yaml
 ---
