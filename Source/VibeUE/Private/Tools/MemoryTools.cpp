@@ -562,7 +562,7 @@ static FToolAutoRegistrar AutoRegister_memory(
 			FToolParameter(TEXT("file_text"), TEXT("Full contents for the 'create' command."), TEXT("string"), false),
 			FToolParameter(TEXT("old_str"), TEXT("Exact text to find for 'str_replace' (must appear exactly once)."), TEXT("string"), false),
 			FToolParameter(TEXT("new_str"), TEXT("Replacement text for 'str_replace'."), TEXT("string"), false),
-			FToolParameter(TEXT("insert_line"), TEXT("Line number to insert AFTER for 'insert' (0 = beginning of file)."), TEXT("int"), false),
+			FToolParameter(TEXT("insert_line"), TEXT("Line number to insert AFTER for 'insert' (0 = beginning of file)."), TEXT("integer"), false),
 			FToolParameter(TEXT("insert_text"), TEXT("Text to insert for the 'insert' command."), TEXT("string"), false),
 			FToolParameter(TEXT("view_range"), TEXT("Optional [start, end] line range for 'view' on a file."), TEXT("array"), false),
 			FToolParameter(TEXT("old_path"), TEXT("Source path for the 'rename' command."), TEXT("string"), false),

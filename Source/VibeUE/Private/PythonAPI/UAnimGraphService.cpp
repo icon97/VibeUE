@@ -58,6 +58,31 @@
 #include "UObject/UnrealType.h"
 
 // ============================================================================
+// FILE-LOCAL HELPERS
+// ============================================================================
+
+namespace
+{
+	// UE 5.6's UAnimStateEntryNode exposes GetOutputNode() but not GetOutputPin().
+	// The entry node owns a single output pin, so resolve it directly from Pins.
+	UEdGraphPin* GetEntryNodeOutputPin(const UAnimStateEntryNode* EntryNode)
+	{
+		if (!EntryNode)
+		{
+			return nullptr;
+		}
+		for (UEdGraphPin* Pin : EntryNode->Pins)
+		{
+			if (Pin && Pin->Direction == EGPD_Output)
+			{
+				return Pin;
+			}
+		}
+		return nullptr;
+	}
+}
+
+// ============================================================================
 // PRIVATE HELPERS
 // ============================================================================
 
@@ -2342,7 +2367,7 @@ bool UAnimGraphService::SetEntryState(const FString& AnimBlueprintPath, const FS
 		return false;
 	}
 
-	UEdGraphPin* EntryOutPin = SMGraph->EntryNode->GetOutputPin();
+	UEdGraphPin* EntryOutPin = GetEntryNodeOutputPin(SMGraph->EntryNode);
 	UEdGraphPin* StateInPin = TargetState->GetInputPin();
 	if (!EntryOutPin || !StateInPin)
 	{
@@ -2998,7 +3023,7 @@ FAnimStateMachineValidationResult UAnimGraphService::ValidateStateMachine(const 
 	UAnimStateNodeBase* EntryTarget = nullptr;
 	if (SMGraph->EntryNode)
 	{
-		if (UEdGraphPin* EntryOut = SMGraph->EntryNode->GetOutputPin())
+		if (UEdGraphPin* EntryOut = GetEntryNodeOutputPin(SMGraph->EntryNode))
 		{
 			if (EntryOut->LinkedTo.Num() > 0 && EntryOut->LinkedTo[0])
 			{
