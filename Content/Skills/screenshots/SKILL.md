@@ -1,7 +1,7 @@
 ---
 name: screenshots
 display_name: Screenshot & Vision
-description: Capture screenshots of the editor window, viewports, and blueprints for AI vision analysis
+description: Capture screenshots of the editor window, viewports, and asset editors for AI vision analysis (ScreenshotService). Use when the user asks you to look at / see / show the editor, verify something visually, capture a material or blueprint editor, or when you need vision to confirm a change. Pair captures with attach_image.
 vibeue_classes:
   - ScreenshotService
 unreal_classes:
@@ -14,6 +14,13 @@ keywords:
 ---
 
 # Screenshot & Vision Skill
+
+## Which capture path — external MCP client vs. VibeUE internal chat
+
+- **External MCP clients (Claude Code, Cursor, …):** prefer the one-call MCP action `editor_control(action="screenshot")` (params: `mode=editor_window|active_window`, `name`). It captures synchronously and returns a `file_path` you can open/read — no Python, no skill load. Use `mode="active_window"` for a separate PIE/game window.
+- **VibeUE internal chat:** the `editor_control` screenshot action is **NOT for you** — it returns a path that never enters your vision and will refuse internal-chat calls. Capture with the **Python API** below (`unreal.ScreenshotService.capture_editor_window(...)` via `execute_python_code`), then call the `attach_image` tool so the image enters your next turn.
+
+Both paths use the same synchronous Windows capture underneath. The methods below are the Python API for the internal-chat path.
 
 ## Methods
 
@@ -61,7 +68,7 @@ actor_service.set_viewport_camera(view.camera_location, view.camera_rotation)
 # Directly set camera to any position/rotation (avoid this — easy to miss the subject)
 actor_service.set_viewport_camera(
     unreal.Vector(1000, 2000, 500),
-    unreal.Rotator(-45, 0, 0)
+    unreal.Rotator(pitch=-45)   # ⚠️ Rotator positional order is (Roll, Pitch, Yaw) — always use kwargs
 )
 ```
 
@@ -109,7 +116,7 @@ if camera_info:
 
 # Set camera to a new position/rotation
 new_location = unreal.Vector(x, y, z)
-new_rotation = unreal.Rotator(pitch, yaw, roll)
+new_rotation = unreal.Rotator(pitch=pitch, yaw=yaw, roll=roll)  # ⚠️ positional order is (Roll, Pitch, Yaw) — always use kwargs
 editor_subsys.set_level_viewport_camera_info(new_location, new_rotation)
 ```
 
@@ -194,7 +201,7 @@ else:
 
 ## Attaching Images for Vision Analysis
 
-After capturing, use the `attach_image` **tool call** (NOT a Python function — call it directly like `terrain_data` or `manage_skills`):
+After capturing, use the `attach_image` **tool call** (NOT a Python function — call it directly like `terrain_data` or `vibeue-skills-manager`):
 
 ```
 attach_image(file_path="E:/Screenshots/Capture.png")
@@ -211,3 +218,7 @@ attach_image(file_path="E:/Screenshots/Capture.png")
 - **Satellite images**: `terrain_data get_map_image` → attach → identify terrain features for material/painting
 - **Blueprint graphs**: Capture editor window → attach → review node layout
 - **Verification**: Capture result → attach → confirm changes look correct
+
+## Sample scripts (run via `execute_python_code`)
+
+- **`scripts/capture.pyx`** — capture the editor/active window or an asset editor for vision analysis.

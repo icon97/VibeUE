@@ -41,6 +41,8 @@ Use the individual `add_*_node` + `connect_nodes` methods when:
 | `make_struct` | `struct` | Make Struct node (`K2Node_MakeStruct`) for any struct type (engine or user-defined) |
 | `instanced_struct` | `struct` | Make Instanced Struct node — wraps a struct into `FInstancedStruct` |
 
+> **Standard Macro nodes (ForEachLoop, ForLoop, WhileLoop, DoOnce, Gate, IsValid, FlipFlop, …) are NOT placeable here.** They are `K2Node_MacroInstance` with no spawner key, so neither `spawner_key` nor `function_call` will create them. Place them separately with `add_macro_instance_node(bp, graph, "ForEachLoop", x, y)`, then wire them via the normal connection format. See the macro section in [SKILL.md](SKILL.md).
+
 ### Connection Format
 
 Connections use `"RefOrGUID.PinName"` format: `{"from_": "A.then", "to": "B.execute"}`
@@ -264,12 +266,13 @@ for n in nodes:
 
 ### Auto-Layout (`auto_layout_graph` / `auto_layout_selected_nodes`)
 
-Both methods use the same simplified Sugiyama algorithm:
-- Layers assigned by BFS on execution (exec pin) flow; falls back to data-flow BFS if exec flow is flat
-- Pure data nodes placed one column left of their first exec consumer
-- Independent event chains get separate vertical bands so they never overlap
-- Event/entry nodes sort to the top of each layer
-- Column width: 450 px, Row height: 180 px
+Both methods use the same layered (Sugiyama-style) algorithm:
+- **Columns by dependency depth** — layer = longest path over the combined exec **and** data edge graph, so inputs sit to the left and flow rightward into the exec/Set nodes that consume them (a deep `Get → math → Clamp → Set` chain steps across columns instead of stacking in one).
+- **Cycle-safe** — back-edges (a loop body wired back to its loop, recursion, a Reset re-entry) are detected via DFS and excluded from column assignment, so a cycle can never inflate graph width. The back-edge is still drawn as a wire. DFS is seeded from event entry points so the dropped edge is the genuine loop-back.
+- **Crossing reduction** — median ordering sweeps; fan-out siblings (a branch's then/else, a sequence's outputs, a loop's body/completed) keep their output-pin order top-to-bottom.
+- **Straight backbones** — Y aligns each node to the median center of its neighbors, weighted toward **exec** neighbors, so the execution spine stays horizontal while data feeds in from the side. A branch sits at the midpoint of its then/else targets.
+- **Independent components** get separate non-overlapping vertical bands; rows are spaced by node size (pin count).
+- **Idempotent** — running it twice moves nothing. Column width 420 px.
 
 **`auto_layout_graph`** — repositions **every** node in the graph:
 

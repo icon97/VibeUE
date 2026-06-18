@@ -19,7 +19,8 @@
 - **In-Editor AI Chat** - Chat with AI directly inside Unreal Editor
 - **Python API Services** - 32 specialized services with 1068 methods for Blueprints, Materials, Widgets, Landscape Terrain, Splines, Foliage, Animation Sequences, Animation Blueprints, Animation Montages, Niagara (systems + emitters + **scratch-pad graph authoring**), Skeletons, Sound Cues, MetaSounds, Gameplay Tags, Screenshots, Viewport Control, Runtime Virtual Textures, StateTree Behavior, UV Mapping, Editor Transactions, **Procedural FPS Map Blockout**, Project/Engine Settings, and more
 - **Full Unreal Python Access** - Execute any Unreal Engine Python API through MCP
-- **MCP Tools** - 10 tools for discovery, execution, asset workflows, debugging, terrain generation, and web research
+- **MCP Tools** - 11 tools for discovery, execution, asset workflows, debugging, terrain generation, web research, and editor/profiler control
+- **Eyes & hands in the viewport, built in** - spawn/move/edit level actors, control the editor camera, run the game (PIE), and **capture viewport screenshots for visual self-review** (`editor_control(action="screenshot")`) — the full build → look → fix loop without a second plugin
 - **Domain Skills** - 35 lazy-loaded skill packs covering Blueprints, graph editing, materials, terrain, animation, audio, AI, gameplay tags, widgets, viewport, data, PCG (procedural content generation), UV mapping, procedural map blockout, and more
 - **Custom Instructions** - Add project-specific context via markdown files
 - **External IDE Integration** - Connect VS Code, Claude Code, Cursor, and AntiGravity via MCP
@@ -30,7 +31,7 @@
 
 VibeUE uses a **Python-first architecture** that gives AI assistants access to:
 
-### 1. MCP Tools (10 tools)
+### 1. MCP Tools (11 tools, +1 optional)
 Lightweight MCP tools for AI interaction with Unreal:
 
 | Tool | Purpose |
@@ -40,11 +41,13 @@ Lightweight MCP tools for AI interaction with Unreal:
 | `discover_python_function` | Get function signatures and docstrings |
 | `execute_python_code` | Run Python code in Unreal Editor context |
 | `list_python_subsystems` | List available UE editor subsystems |
-| `manage_skills` | Load domain-specific knowledge on demand |
+| `vibeue-skills-manager` | Load domain-specific knowledge on demand |
 | `manage_asset` | Search, open, save, move, duplicate, delete, and import (image files from disk) assets safely |
 | `read_logs` | Read and filter Unreal Engine log files with regex support |
 | `terrain_data` | Generate real-world heightmaps, map images, and water feature data from geographic coordinates |
 | `deep_research` | Web search, page fetching, and GPS geocoding — no API key required |
+| `editor_control` | Control PIE/standalone play, **capture viewport screenshots** for visual self-review, run Unreal Insights profiling, and report frame timing with a CPU-vs-GPU bound verdict |
+| `manage_editor_chat` _(optional)_ | Drive the in-editor AI chat for automated end-to-end testing. **Hidden unless Chat Editor Testing mode is enabled** — see [In-Editor AI Chat → Chat Editor Testing](#-chat-editor-testing-optional). |
 
 **Note:** The `read_logs` MCP tool provides access to Unreal Engine's log files for debugging, error analysis, and workflow understanding.
 
@@ -108,19 +111,19 @@ execute_python_code(
 
 ##### Skills System Tool
 
-**`manage_skills`**
+**`vibeue-skills-manager`**
 ```python
 # List all available skills
-manage_skills(action="list")
+vibeue-skills-manager(action="list")
 
 # Suggest skills based on query
-manage_skills(action="suggest", query="create widget button")
+vibeue-skills-manager(action="suggest", query="create widget button")
 
 # Load single skill
-manage_skills(action="load", skill_name="blueprints")
+vibeue-skills-manager(action="load", skill_name="blueprints")
 
 # Load multiple skills together (more efficient - deduplicated discovery)
-manage_skills(action="load", skill_names=["blueprints", "enhanced-input"])
+vibeue-skills-manager(action="load", skill_names=["blueprints", "enhanced-input"])
 ```
 
 Skill names: `animation-blueprint`, `animation-editing`, `animation-montage`, `animsequence`, `asset-management`, `blueprint-graphs`, `blueprints`, `data-assets`, `data-tables`, `engine-settings`, `enhanced-input`, `enum-struct`, `foliage`, `gameplay-tags`, `landscape`, `landscape-auto-material`, `landscape-materials`, `level-actors`, `map-blockout`, `materials`, `metasounds`, `niagara-emitters`, `niagara-systems`, `pcg`, `pie-testing`, `project-settings`, `screenshots`, `skeleton`, `sound-cues`, `state-trees`, `terrain-data`, `umg-widgets`, `uv-mapping`, `vibeue`, `viewport`
@@ -288,51 +291,57 @@ deep_research(action="reverse_geocode", lat=35.3606, lng=138.7274)
 - Research: `search` → `fetch_page` on best URL → synthesize
 - Terrain: `geocode "Mount Fuji"` → pass lat/lng to `terrain_data`
 
-### Log Reader Tool (`read_logs`)
+##### Editor & Profiler Control Tool
 
-The `read_logs` MCP tool provides comprehensive log file access with filtering and analysis capabilities:
-
-**Actions:**
-- `list` - Browse available log files by category (System, Blueprint, Niagara, VibeUE)
-- `info` - Get file metadata (size, line count, last modified)
-- `read` - Read file with pagination (default 2000 lines, offset support)
-- `tail` - Get last N lines (like PowerShell's `Get-Content -Tail`)
-- `head` - Get first N lines
-- `filter` - Regex search with context lines and match limit
-- `errors` - Find error messages
-- `warnings` - Find warning messages
-- `since` - Get new content since last read (by line number)
-- `help` - Get detailed documentation
-
-**File Aliases:**
-- `main` or `system` → Main project log (FPS57.log)
-- `chat` or `vibeue` → VibeUE chat history log
-- `llm` → Raw LLM API request/response log
-- Or use full file paths
-
-**Examples:**
+**`editor_control`**
 ```python
-# List all logs
-read_logs(action="list")
+# --- Play-in-Editor (PIE) ---
+editor_control(action="start_pie")
+editor_control(action="pie_status")
+editor_control(action="stop_pie")
 
-# Filter by category
-read_logs(action="list", category="Niagara")
+# --- Screenshot (synchronous) — SEE what you built, then self-review ---
+editor_control(action="screenshot")                       # whole editor window
+editor_control(action="screenshot", mode="active_window") # foreground window (e.g. a separate PIE game window)
+# Returns { file_path, width, height, ... } — open the PNG to review, then fix and re-capture.
+# External MCP clients only; the in-editor VibeUE chat captures via ScreenshotService + attach_image.
 
-# Get last 50 lines of main log
-read_logs(action="tail", file="main", lines=50)
+# --- Standalone (separate game process with trace attached) ---
+editor_control(action="start_standalone")           # optional: name=, channels=
+editor_control(action="standalone_status")
+editor_control(action="stop_standalone")
 
-# Search for errors with context
-read_logs(action="filter", file="main", pattern="ERROR|EXCEPTION", context_lines=5)
+# --- Frame timing — RUN THIS FIRST ---
+# Reports Game/Render/GPU thread split + a CPU-vs-GPU bound verdict and hint
+editor_control(action="frame_timing")
 
-# Find compilation errors
-read_logs(action="errors", file="main", max_matches=20)
+# --- Unreal Insights profiling ---
+editor_control(action="profiler_start", name="my_capture")  # begin trace to file
+editor_control(action="profiler_bookmark", name="boss_fight")
+editor_control(action="profiler_region_start", name="wave_1")
+editor_control(action="profiler_region_end", name="wave_1")
+editor_control(action="profiler_status")
+editor_control(action="profiler_stop")
 
-# Read specific range
-read_logs(action="read", file="chat", offset=1000, limit=500)
+# --- Read back a trace/logs and summarize perf ---
+editor_control(action="analyse", source="both")      # source: trace | logs | both
 
-# Check for new content since line 2500
-read_logs(action="since", file="main", last_line=2500)
+# --- Help ---
+editor_control(action="help")
 ```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | string | Yes | `start_pie`, `stop_pie`, `pie_status`, `start_standalone`, `stop_standalone`, `standalone_status`, `screenshot` (alias `capture`), `profiler_start`, `profiler_stop`, `profiler_status`, `profiler_bookmark`, `profiler_region_start`, `profiler_region_end`, `frame_timing`, `analyse`, `help` |
+| `name` | string | No | Trace file name (`profiler_start`/`start_standalone`), label (`profiler_bookmark`/`profiler_region_*`), or output PNG name (`screenshot`) |
+| `mode` | string | No | `screenshot` — `editor_window` (default) or `active_window` |
+| `channels` | string | No | Comma-separated trace channels (`profiler_start`/`start_standalone`). Default: `frame,cpu,gpu,log,loadtime,object,stats` |
+| `source` | string | No | `analyse` — what to read: `trace`, `logs`, or `both` (default: `both`) |
+| `file` | string | No | `analyse` — override the trace or log file path |
+
+**Typical workflow:** `frame_timing` to find whether you're CPU- or GPU-bound → `profiler_start` → play through a representative scene (drop `profiler_bookmark`/`region` markers) → `profiler_stop` → `analyse` to read the trace + logs back. Run inside PIE or a standalone session for a real game-bound reading; the editor viewport alone is not representative.
 
 ### 2. VibeUE Python API Services (32 services, 1068 methods)
 High-level services exposed to Python for common game development tasks:
@@ -457,6 +466,26 @@ The built-in chat interface runs directly in Unreal Editor:
 | **LLM Provider** | VibeUE | Select VibeUE or OpenRouter |
 | **Temperature** | 0.2 | Creativity (0.0-1.0) |
 | **Max Tool Iterations** | 100 | Max tool calls per turn |
+| **Chat Editor Testing** | Off | Exposes the optional `manage_editor_chat` MCP tool (see below) |
+
+### 🧪 Chat Editor Testing (optional)
+
+A testing mode that lets an **external** agent drive the **in-editor** AI chat end-to-end — useful for
+automated regression runs of skills/services against a live editor. When enabled, the MCP server exposes
+one extra tool, **`manage_editor_chat`**; it is **hidden by default** so normal users and the in-editor
+chat AI never see it.
+
+**Enable it any of these ways:**
+- Settings checkbox: *Project Settings → Plugins → VibeUE → General → Chat Editor Testing*
+- Config: `[VibeUE] ChatEditorTesting=True` in `EditorPerProjectUserSettings.ini`
+- Launch flag: start the editor with `-VibeUEChatTesting`
+
+**`manage_editor_chat` actions:** `open_chat`, `send_message`, `check_chat_status`, `get_messages`,
+`get_last_response`, `stop_chat`, `reset_chat` (with optional `archive_log`), `approve_tool` /
+`reject_tool`, `set_yolo_mode`, `set_model`, `archive_chat_log`, `get_chat_log_path`, `help`.
+
+> `send_message` is asynchronous: poll `check_chat_status` until `is_idle=true`, then call
+> `get_last_response`. Enable `set_yolo_mode` for unattended runs so Python execution auto-approves.
 
 ### 🧠 Memory (Persistent Across Sessions)
 
@@ -536,7 +565,7 @@ The AI **must know**:
 - ✅ Compile blueprints before adding variable nodes
 - ✅ Use full asset paths (`/Game/Path/Asset`, not `Asset`)
 - ✅ Property values are strings, not Python types
-- ✅ Load skills with `manage_skills` for domain-specific knowledge
+- ✅ Load skills with `vibeue-skills-manager` for domain-specific knowledge
 - ❌ Never guess method names - discover first
 - ❌ Never use modal dialogs or blocking operations
 - ❌ Never assume service counts or method availability
@@ -552,7 +581,7 @@ VibeUE uses a **Skills System** to dramatically reduce AI context overhead while
 Instead of loading all documentation at once, skills are lazy-loaded on demand:
 
 1. **AI detects the task** (e.g., "Create a blueprint with variables")
-2. **Skill is automatically or manually loaded** via `manage_skills` tool
+2. **Skill is automatically or manually loaded** via `vibeue-skills-manager` tool
 3. **Skill contains**: Critical rules, workflows, common mistakes, property formats
 4. **AI uses skill knowledge** combined with live discovery via `discover_python_class`
 
@@ -576,17 +605,17 @@ Current skills include: `animation-blueprint`, `animation-editing`, `animation-m
 
 **In-Editor Chat** - Skills auto-load based on keywords
 
-**External AI** - Manually load with `manage_skills` tool:
+**External AI** - Manually load with `vibeue-skills-manager` tool:
 
 ```python
 # List all available skills
-manage_skills(action="list")
+vibeue-skills-manager(action="list")
 
 # Load a specific skill
-manage_skills(action="load", skill_name="blueprints")
+vibeue-skills-manager(action="load", skill_name="blueprints")
 
 # Load multiple skills together (deduplicated discovery)
-manage_skills(action="load", skill_names=["blueprints", "enhanced-input"])
+vibeue-skills-manager(action="load", skill_names=["blueprints", "enhanced-input"])
 ```
 
 Skill response includes:
@@ -605,7 +634,7 @@ The recommended pattern:
 import unreal
 
 # 1. Load relevant skill for domain knowledge
-manage_skills(action="load", skill_name="blueprints")
+vibeue-skills-manager(action="load", skill_name="blueprints")
 # ↓ Skill response tells you about BlueprintService methods and critical rules
 
 # 2. Discover exact method signatures BEFORE calling
@@ -1343,10 +1372,10 @@ See the [`niagara-emitters` skill](Content/Skills/niagara-emitters/SKILL.md) for
 
 ### ScreenshotService (5 methods)
 
-ScreenshotService enables AI vision by capturing editor content:
-- `capture_editor_window(path)` - Capture entire editor window (works for blueprints, materials, etc.)
-- `capture_viewport(path, width, height)` - Capture level viewport
-- `capture_active_window(path)` - Capture foreground window
+ScreenshotService enables AI vision by capturing editor content (the Python path; **external MCP clients should use `editor_control(action="screenshot")` instead**):
+- `capture_editor_window(path)` - **Use this for everything.** Synchronous capture of the entire editor window incl. the focused tab (level viewport, blueprints, materials, etc.)
+- `capture_active_window(path)` - Capture the foreground window (e.g. a separate PIE game window)
+- `capture_viewport(path, width, height)` - ⚠️ **Does NOT work from Python** (asynchronous — the file never lands during a Python call). Use `capture_editor_window` instead.
 - `get_open_editor_tabs()` - List open editor tabs with asset info
 - `get_active_window_title()` - Get focused window title
 - `is_editor_window_active()` - Check if editor is in focus
@@ -2063,7 +2092,7 @@ The system prompt supports dynamic token replacement. When the instructions are 
 ```markdown
 ## Available Skills
 
-Load skills using `manage_skills(action="load", skill_name="<name>")`:
+Load skills using `vibeue-skills-manager(action="load", skill_name="<name>")`:
 
 {SKILLS}
 ```
@@ -2095,11 +2124,16 @@ vibeue_classes:
 
 ## 🔌 External MCP Servers
 
-Connect additional MCP servers via `Config/vibeue.mcp.json`:
+The in-editor chat can connect to additional MCP servers via `Config/vibeue.mcp.json`.
+Both `stdio` and `http` transports are supported:
 
 ```json
 {
   "servers": {
+    "unreal-engine-skills": {
+      "type": "http",
+      "url": "https://www.unrealengineskills.com/api/mcp"
+    },
     "my-tool": {
       "type": "stdio",
       "command": "python",
@@ -2108,6 +2142,23 @@ Connect additional MCP servers via `Config/vibeue.mcp.json`:
   }
 }
 ```
+
+### 🧠 Brains vs 🤚 Hands
+
+VibeUE ships preconfigured with the **[Unreal Engine Skills](https://www.unrealengineskills.com)**
+MCP server (`unreal-engine-skills-manager` tool) — a UE 5.7 domain-knowledge library: correct
+engine APIs, architecture patterns, best practices, and engine-source citations.
+
+The two skill systems complement each other:
+
+| | **Brains** — `unreal-engine-skills-manager` | **Hands** — `vibeue-skills-manager` |
+|---|---|---|
+| Answers | WHAT to build and WHY (engine knowledge, best practices) | HOW to execute it in the editor (service workflows, formats) |
+| Touches the editor? | No — knowledge only | Yes — via VibeUE services |
+
+The system prompt instructs the AI to consult the Brains library before design, review, or
+"best practices" questions, then use VibeUE skills to do the editor work. If the external
+server is unreachable, the chat falls back to VibeUE skills alone.
 
 ---
 
