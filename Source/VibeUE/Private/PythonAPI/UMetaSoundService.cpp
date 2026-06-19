@@ -86,7 +86,7 @@ namespace
 #if ENGINE_MAJOR_VERSION > 5 || (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 7)
 		Builder.IterateNodes(Func);
 #else
-		const FMetasoundFrontendDocument& Document = Builder.GetDocument();
+		const FMetasoundFrontendDocument& Document = Builder.GetConstDocumentChecked();
 		for (const FMetasoundFrontendNode& Node : Document.RootGraph.Graph.Nodes)
 		{
 			const FMetasoundFrontendClass* Class = nullptr;
